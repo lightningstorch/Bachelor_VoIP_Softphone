@@ -9,7 +9,7 @@ class EventBus:
         self._queue = queue.Queue()
         self._subscribers = {}
         self._lock = threading.Lock()
-        app_logger.info("Starting EventBus")
+        app_logger.debug("Starting EventBus")
 
 
     def has_event(self):
@@ -28,15 +28,23 @@ class EventBus:
             if event_type not in self._subscribers:
                 self._subscribers[event_type] = []
             self._subscribers[event_type].append(callback)
-        eventbus_logger.info(f"Subscribed: Callback {callback.__name__} for event_type '{event_type.value}'")
+        eventbus_logger.debug(f"Subscribed: Callback {callback.__name__} for event_type '{event_type.value}'")
+
+
+    def unsubscribe(self, event_type, callback):
+        with self._lock:
+            if event_type in self._subscribers:
+                self._subscribers[event_type].remove(callback)
+        eventbus_logger.debug(f"Unsubscribed: Callback {callback.__name__} for event_type '{event_type.value}'")
 
 
     def publish(self, event):
         self._queue.put(event)
-        eventbus_logger.info(f"Published: '{event}'")
+        eventbus_logger.debug(f"Published: '{event}'")
         self._notify_subscriber(event)
 
 
+    # the function calls only the type of the event
     def _notify_subscriber(self, event):
         with self._lock:
             callbacks = self._subscribers.get(event.type, [])
