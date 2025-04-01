@@ -2,7 +2,7 @@ import time
 from datetime import datetime
 import os
 
-from Datastructure.dataclass import Event, EventType
+from Datastructure.dataclass import Call, EventType
 from Datastructure.event_bus import EventBus
 from data_collection.file_processor import FileProcessor
 from src.my_logging.log_config import eventbus_logger, app_logger
@@ -16,14 +16,6 @@ def main():
 
     # For test purposes
     eventbus.subscribe(EventType.NEW_CALL, handle_new_call)
-
-    eventbus.publish(
-        Event(
-            type = EventType.NEW_CALL,
-            call_id=101,
-            start_time = datetime.now(),
-        )
-    )
 
     # file to the network dumps
     file_path = os.path.abspath(r"C:\Transfer\second_doc.pcapng")
@@ -48,7 +40,7 @@ def main():
 
 
 
-def handle_new_call(event: Event):
+def handle_new_call(call: Call):
     print("Now handle the new call --> TODO Implementation")
 
 
