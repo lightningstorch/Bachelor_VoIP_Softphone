@@ -4,7 +4,7 @@ from Datastructure.dataclass import Call, Participant, EventType
 from my_logging.log_config import eventbus_logger, app_logger
 
 
-# TODO implement sip processing
+# TODO filtering of duplications
 def sip_process(sip_packet, eventbus):
     sip = sip_packet.sip
     #print(sip.field_names)

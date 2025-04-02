@@ -5,6 +5,7 @@ from Datastructure.aggregator import Aggregator
 from Datastructure.dataclass import Call, EventType
 from Datastructure.event_bus import EventBus
 from data_collection.file_processor import FileProcessor
+from data_collection.sip_recognizer import SipRecognizer
 from my_logging.log_config import app_logger
 
 
@@ -21,7 +22,7 @@ def main():
 
     # file to the network dumps
     file_path = os.path.abspath(r"C:\Transfer\second_doc.pcapng")
-    read_document = True
+    read_document = False
 
     if read_document:
         # thread erstellen
@@ -36,7 +37,16 @@ def main():
 
         file_processor.join()
 
-    # TODO Thread for SIP-recognize here as else
+    else:
+        sip_recognize = SipRecognizer(eventbus)
+
+        sip_recognize.start()
+
+        # Test the wait for rtp packets
+        time.sleep(0.5)
+        sip_recognize.set_context_ready()
+
+        sip_recognize.join()
 
 
 
