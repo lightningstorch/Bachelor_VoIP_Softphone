@@ -35,5 +35,18 @@ if not eventbus_logger.handlers:
     # Important: Deactivate propagation so that these logs do not also end up in app.log
     eventbus_logger.propagate = False
 
+# -------------------------------------
+# Configuration of the Aggregator-Loggers
+# -------------------------------------
+aggregator_logger = logging.getLogger('aggregator')
+aggregator_logger.setLevel(logging.DEBUG)
 
+if not aggregator_logger.handlers:
+    aggregator_file_handler = logging.FileHandler(os.path.join(LOGS_DIR, 'aggregator.log'))
+    aggregator_file_handler.setLevel(logging.DEBUG)
+    aggregator_file_handler.setFormatter(logging_format)
+
+    aggregator_logger.addHandler(aggregator_file_handler)
+    # Important: Deactivate propagation so that these logs do not also end up in app.log
+    aggregator_logger.propagate = False
 

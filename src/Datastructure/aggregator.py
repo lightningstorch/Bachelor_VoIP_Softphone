@@ -1,6 +1,6 @@
 from Datastructure.dataclass import CallInfo, ParticipantInfo, EventType, Info
 from typing import List, Dict
-from my_logging.log_config import app_logger
+from my_logging.log_config import app_logger, aggregator_logger
 
 
 class Aggregator:
@@ -20,6 +20,7 @@ class Aggregator:
     def aggregator_new_call(self, event):
         # store in the buffer
         self._call_buffer[event.call_id] = CallInfo()
+        aggregator_logger.debug(f"New call is temporarily saved: {event.call_id}")
 
 
     def aggregator_participation(self, event):
@@ -31,6 +32,8 @@ class Aggregator:
                 mime_type=event.mime_type,
             )
         )
+        aggregator_logger.debug(f"Participant {event.user} is temporarily saved in call id {event.call_id}")
+
         print(self._call_buffer[event.call_id])
 
 
@@ -45,6 +48,7 @@ class Aggregator:
                 participants= participants,
             )
         )
+        app_logger.debug(f"Publish information to initialising for call id '{event.call_id}'")
 
         self._call_buffer[event.call_id].start_time = event.start_time
         print(self._call_buffer[event.call_id])
@@ -53,6 +57,7 @@ class Aggregator:
 
         # save to the database
         self.store_in_db()
+        aggregator_logger.info(f"Call ID '{event.call_id}' has been stored in db")
 
 
 
@@ -64,6 +69,7 @@ class Aggregator:
 
 
         self.store_in_db()
+        aggregator_logger.info(f"Call ID '{event.call_id}' has been finished and stored in db")
 
 
     def store_in_db(self):

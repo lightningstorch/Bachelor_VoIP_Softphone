@@ -1,12 +1,11 @@
 import time
-from datetime import datetime
 import os
 
 from Datastructure.aggregator import Aggregator
 from Datastructure.dataclass import Call, EventType
 from Datastructure.event_bus import EventBus
 from data_collection.file_processor import FileProcessor
-from my_logging.log_config import eventbus_logger, app_logger
+from my_logging.log_config import app_logger
 
 
 
@@ -17,8 +16,8 @@ def main():
     eventbus = EventBus()
     aggregator = Aggregator(eventbus)
 
-    # For test purposes
-    eventbus.subscribe(EventType.NEW_CALL, main_call_init)
+    # to init the call Context
+    eventbus.subscribe(EventType.CALL_INIT, main_call_init)
 
     # file to the network dumps
     file_path = os.path.abspath(r"C:\Transfer\second_doc.pcapng")
