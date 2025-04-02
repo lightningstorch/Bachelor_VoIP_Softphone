@@ -1,4 +1,4 @@
-from src.my_logging.log_config import eventbus_logger, app_logger
+from my_logging.log_config import eventbus_logger, app_logger
 import queue
 import threading
 

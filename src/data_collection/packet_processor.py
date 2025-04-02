@@ -1,7 +1,7 @@
 from datetime import datetime
 
 from Datastructure.dataclass import Call, Participant, EventType
-from src.my_logging.log_config import eventbus_logger, app_logger
+from my_logging.log_config import eventbus_logger, app_logger
 
 
 # TODO implement sip processing
@@ -40,7 +40,7 @@ def sip_process(sip_packet, eventbus):
                 Call(
                     type = EventType.CALL_STARTED,
                     call_id = sip.call_id,
-                    end_time=datetime.now(), # TODO Time from RTP Packet?
+                    start_time=sip_packet.sniff_time,
                 )
             )
 
@@ -84,7 +84,7 @@ def sip_process(sip_packet, eventbus):
                     Call(
                         type = EventType.CALL_END,
                         call_id = sip.call_id,
-                        end_time = datetime.now(), # TODO Time from RTP Packet?
+                        end_time= sip_packet.sniff_time,
                     )
                 )
 
