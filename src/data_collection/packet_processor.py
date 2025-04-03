@@ -1,13 +1,20 @@
-from datetime import datetime
+import threading
+
+from cachetools import TTLCache
 
 from Datastructure.dataclass import Call, Participant, EventType
 from my_logging.log_config import eventbus_logger, app_logger
 
+cache = TTLCache(maxsize=1000, ttl=60)
+cache_lock = threading.Lock()
 
 # TODO filtering of duplications
 def sip_process(sip_packet, eventbus):
     sip = sip_packet.sip
     #print(sip.field_names)
+
+    if check_dup_packet(sip):
+        return
 
     if hasattr(sip, 'request_line'):
         if sip.method == 'INVITE':
@@ -95,3 +102,21 @@ def sip_process(sip_packet, eventbus):
 def rtp_process(rtp_packet, eventbus):
     pass
 
+
+# True is when the packet exists in the cache - false if the packet isn't in the cache
+def check_dup_packet(sip):
+    status_code = getattr(sip, 'status_code', None)
+    method = getattr(sip, 'method', None)
+    # create the cache name
+    unique_cache_id = f"{sip.call_id}-{sip.via_branch}-{status_code if status_code is not None else method}"
+
+    # check in the cache
+    with cache_lock:
+        if unique_cache_id not in cache:
+            cache[unique_cache_id] = True
+            return False
+
+    # for key, value in cache.items():
+    #     print(f"{key}: {value}")
+
+    return True

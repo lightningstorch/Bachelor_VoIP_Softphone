@@ -21,8 +21,8 @@ def main():
     eventbus.subscribe(EventType.CALL_INIT, main_call_init)
 
     # file to the network dumps
-    file_path = os.path.abspath(r"C:\Transfer\second_doc.pcapng")
-    read_document = False
+    file_path = os.path.abspath(r"C:\Transfer\test.pcapng")
+    read_document = True
 
     if read_document:
         # thread erstellen
@@ -47,8 +47,6 @@ def main():
         sip_recognize.set_context_ready()
 
         sip_recognize.join()
-
-
 
 
 
