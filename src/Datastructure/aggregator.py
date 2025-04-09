@@ -10,8 +10,9 @@ class Aggregator:
 
         eventbus.subscribe(EventType.NEW_CALL, self.aggregator_new_call)
         eventbus.subscribe(EventType.PARTICIPANTS, self.aggregator_participation)
-        eventbus.subscribe(EventType.CALL_STARTED, self.aggregator_call_start)
+        eventbus.subscribe(EventType.ACK, self.aggregator_ack)
         eventbus.subscribe(EventType.CALL_END, self.aggregator_call_end)
+        eventbus.subscribe(EventType.CALL_DECLINE, self.aggregator_call_decline)
 
         app_logger.debug("Starting Aggregator")
 
@@ -20,7 +21,7 @@ class Aggregator:
     def aggregator_new_call(self, event):
         # store in the buffer
         self._call_buffer[event.call_id] = CallInfo()
-        aggregator_logger.debug(f"New call is temporarily saved: {event.call_id}")
+        aggregator_logger.debug(f"New call is temporarily saved: '{event.call_id}'")
 
 
     def aggregator_participation(self, event):
@@ -37,8 +38,14 @@ class Aggregator:
         print(self._call_buffer[event.call_id])
 
 
-    def aggregator_call_start(self, event):
+    def aggregator_ack(self, event):
         # send message to init the call (main)
+
+        # if call is not in self._call_bugger, then the call is canceled
+        if event.call_id not in self._call_buffer:
+            return
+
+
         participants = self._call_buffer[event.call_id].participants
         self.eventbus.publish(
             Info(
@@ -71,6 +78,16 @@ class Aggregator:
         self.store_in_db()
         aggregator_logger.info(f"Call ID '{event.call_id}' has been finished and stored in db")
 
+
+    def aggregator_call_decline(self, event):
+        # save directly in the database
+        # TODO End Info to API
+
+        remove_call_id = self._call_buffer.pop(event.call_id, None)
+        if remove_call_id is not None:
+            print(f"Removing call id '{event.call_id}'")
+
+            aggregator_logger.info(f"Call ID '{event.call_id}' has been declined")
 
     def store_in_db(self):
         # TODO implement the database

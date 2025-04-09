@@ -21,7 +21,7 @@ def main():
     eventbus.subscribe(EventType.CALL_INIT, main_call_init)
 
     # file to the network dumps
-    file_path = os.path.abspath(r"C:\Transfer\test.pcapng")
+    file_path = os.path.abspath(r"C:\Transfer\anruf_abgelehnt.pcapng")
     read_document = True
 
     if read_document:

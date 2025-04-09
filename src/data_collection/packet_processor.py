@@ -45,7 +45,7 @@ def sip_process(sip_packet, eventbus):
             # Call is established
             eventbus.publish(
                 Call(
-                    type = EventType.CALL_STARTED,
+                    type = EventType.ACK,
                     call_id = sip.call_id,
                     start_time=sip_packet.sniff_time,
                 )
@@ -81,7 +81,7 @@ def sip_process(sip_packet, eventbus):
                     )
                 )
 
-                print(f"{sip.status_code}: {sip.status_line} invite")
+                print(f"{sip.status_code}: {sip.status_line} INVITE")
 
             elif method == 'BYE':
                 app_logger.debug(f"BYE accepted: {sip.status_line}, Call-ID: {sip.call_id}")
@@ -96,6 +96,19 @@ def sip_process(sip_packet, eventbus):
                 )
 
                 print(f"{sip.status_code}: {sip.status_line} BYE")
+
+       elif int(sip.status_code) == 603:
+           app_logger.debug(f"Decline detected: {sip.status_line}, Call-ID: {sip.call_id}")
+
+           eventbus.publish(
+               Call(
+                   type = EventType.CALL_DECLINE,
+                   call_id = sip.call_id,
+               )
+           )
+
+           print(f"{sip.status_code}: {sip.status_line} DECLINE")
+
 
 
 # TODO implement rtp processing

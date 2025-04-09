@@ -10,12 +10,13 @@ from enum import Enum
 # -------------------------------------------------------------------
 class EventType(Enum):
     NEW_CALL = "NEW_CALL"
-    CALL_STARTED = "CALL_STARTED"
+    ACK = "ACK"
     CALL_END = "CALL_END"
     RTP_PAKET = "RTP_PAKET"
     LOG = "LOG"
     PARTICIPANTS = "PARTICIPANTS"
     CALL_INIT = "CALL_INIT"
+    CALL_DECLINE = "CALL_DECLINE"
 
 # -------------------------------------------------------------------
 # Dataclass for the aggregator to store information in the dictionary
