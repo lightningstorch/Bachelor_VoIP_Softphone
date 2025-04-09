@@ -1,6 +1,19 @@
 import logging
 import os
 
+"""
+This module configures the loggers for the application.
+
+Three loggers are set up:
+- app_logger: Logs general application events.
+- eventbus_logger: Logs events from the event bus, which is stored separately from app_logger.
+- aggregator_logger: Logs events from the aggregator component, also separately 
+ from app_logger.
+
+All loggers use the same format ('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+and write to individual log files in the LOGS_DIR directory.
+"""
+
 LOGS_DIR = '../logs'
 os.makedirs(LOGS_DIR, exist_ok=True)
 

@@ -5,6 +5,20 @@ import threading
 # TODO Integrate more logging
 
 class EventBus:
+    """
+        A simple implementation of an event bus system for asynchronous communication between the components
+
+        Properties:
+             _queue (queue.Queue): A queue for incoming events.
+            _subscribers (dict): Registered callback functions that respond to specific event types.
+            _lock (threading.Lock): A lock for thread-safe use of the _subscribers dict to add/remove subscribers
+
+        Methods:
+            subscribe: Registers a callback for a specific event type.
+            unsubscribe: Removes a registered callback.
+            publish: Publishes an event and notifies subscribers.
+        """
+
     def __init__(self):
         self._queue = queue.Queue()
         self._subscribers = {}
@@ -46,6 +60,12 @@ class EventBus:
 
     # the function calls only the type of the event
     def _notify_subscriber(self, event):
+        """
+        Calls all callback functions in self._subscribers that are registered for the event type of the given event.
+
+        Args:
+            event: Incoming event with the event type.
+        """
         with self._lock:
             callbacks = self._subscribers.get(event.type, [])
         for callback in callbacks:
