@@ -12,3 +12,7 @@ _config.read(Path(__file__).parent / 'config.ini')
 server_ip = _config['network']['server_ip']
 interface = _config['network']['interface']
 
+database_type = _config['database']['type']
+database_connection = _config['database']['connection_string']
+
+captured_file_path = _config['captured_file']['file_path']

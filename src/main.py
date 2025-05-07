@@ -1,12 +1,15 @@
 import time
 import os
 
-from Datastructure.aggregator import Aggregator
-from Datastructure.dataclass import Call, EventType
-from Datastructure.event_bus import EventBus
+from config.config import captured_file_path
+from datastructure.aggregator import Aggregator
+from datastructure.dataclass import Call, EventType
+from datastructure.event_bus import EventBus
 from data_collection.file_processor import FileProcessor
 from data_collection.sip_recognizer import SipRecognizer
 from my_logging.log_config import app_logger
+
+from datastructure.database.database import init_db
 
 
 
@@ -17,11 +20,14 @@ def main():
     eventbus = EventBus()
     aggregator = Aggregator(eventbus)
 
+    # for development
+    init_db()
+
     # to init the call Context
     eventbus.subscribe(EventType.CALL_INIT, main_call_init)
 
     # file to the network dumps
-    file_path = os.path.abspath(r"C:\Transfer\anruf_abgelehnt.pcapng")
+    file_path = os.path.abspath(captured_file_path)
     read_document = True
 
     if read_document:
