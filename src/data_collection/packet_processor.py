@@ -8,6 +8,23 @@ from my_logging.log_config import eventbus_logger, app_logger
 cache = TTLCache(maxsize=1000, ttl=60)
 cache_lock = threading.Lock()
 
+def process_packets(packet, eventbus, context_ready):
+
+    if 'SIP' in packet:
+        print("SIP packet detected")
+        app_logger.debug("SIP packet detected")
+
+        sip_process(packet, eventbus)
+
+    # elif 'RTP' in packet:
+        # print("RTP packet detected")
+        # app_logger.debug("RTP packet detected")
+        #
+        # # wait until context stuff is ready
+        # context_ready.wait()
+        #
+        # rtp_process(packet, eventbus)
+
 # TODO filtering of duplications
 def sip_process(sip_packet, eventbus):
     sip = sip_packet.sip

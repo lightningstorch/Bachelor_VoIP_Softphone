@@ -72,5 +72,5 @@ class EventBus:
             try:
                 callback(event)
             except Exception as e:
-                app_logger.error(f"Error when executing callback {callback.__name__} for event {event}:", e)
+                app_logger.error(f"Error when executing callback {callback.__name__} for event {event}: {e}")
 

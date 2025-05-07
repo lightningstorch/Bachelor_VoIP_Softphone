@@ -1,12 +1,11 @@
 import time
 import os
 
-from config.config import captured_file_path
+from config.config import captured_file_path, interface
+from data_collection.packet_monitor import PacketMonitor
 from datastructure.aggregator import Aggregator
 from datastructure.dataclass import Call, EventType
 from datastructure.event_bus import EventBus
-from data_collection.file_processor import FileProcessor
-from data_collection.sip_recognizer import SipRecognizer
 from my_logging.log_config import app_logger
 
 from datastructure.database.database import init_db
@@ -21,38 +20,27 @@ def main():
     aggregator = Aggregator(eventbus)
 
     # for development
-    init_db()
+    #init_db()
 
     # to init the call Context
     eventbus.subscribe(EventType.CALL_INIT, main_call_init)
 
     # file to the network dumps
     file_path = os.path.abspath(captured_file_path)
-    read_document = True
+    life_capture = False
 
-    if read_document:
-        # thread erstellen
-        file_processor = FileProcessor(file_path, eventbus)
-
-        # thread laufen lassen
-        file_processor.start()
-
-        # Test the wait for rtp packets
-        time.sleep(0.5)
-        file_processor.set_context_ready()
-
-        file_processor.join()
-
+    if life_capture:
+        packet_monitor = PacketMonitor(eventbus, "live", interface)
     else:
-        sip_recognize = SipRecognizer(eventbus)
+        packet_monitor = PacketMonitor(eventbus, "file", os.path.abspath(captured_file_path))
 
-        sip_recognize.start()
+    packet_monitor.start()
 
-        # Test the wait for rtp packets
-        time.sleep(0.5)
-        sip_recognize.set_context_ready()
+    # Test the wait for rtp packets
+    time.sleep(0.5)
+    packet_monitor.set_context_ready()
 
-        sip_recognize.join()
+    packet_monitor.join()
 
 
 
