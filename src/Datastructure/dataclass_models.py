@@ -3,6 +3,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Optional, Dict, List
 from enum import Enum
+from pydantic import BaseModel
 
 
 # -------------------------------------------------------------------
@@ -37,23 +38,21 @@ class CallInfo:
 # ------------------------------------------------------
 # Dataclass for the Eventbus to transfer the information
 # ------------------------------------------------------
-@dataclass
-class Call:
+
+class Call(BaseModel):
     type: EventType
     call_id: str
-    start_time: Optional[datetime] = None
-    end_time: Optional[datetime] = None
+    start_time: datetime | None = None
+    end_time: datetime | None = None
 
-@dataclass
-class Participant:
+class Participant(BaseModel):
     type: EventType
     call_id: str
     user: str
     media_port: int
     mime_type: str
 
-@dataclass
-class Info:
+class Info(BaseModel):
     type: EventType
     call_id: str
     amount_participant: int

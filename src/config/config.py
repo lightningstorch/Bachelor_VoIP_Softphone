@@ -16,3 +16,10 @@ database_type = _config['database']['type']
 database_connection = _config['database']['connection_string']
 
 captured_file_path = _config['captured_file']['file_path']
+
+
+# RabbitMQ Message Service
+rabbitmq_host = _config['rabbitmq']['host']
+rabbitmq_port = int(_config['rabbitmq']['port'])
+rabbitmq_user = _config['rabbitmq']['user']
+rabbitmq_password = _config['rabbitmq']['password']
