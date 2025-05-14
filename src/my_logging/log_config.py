@@ -36,17 +36,17 @@ if not app_logger.handlers:
 # -------------------------------------
 # Configuration of the EventBus-Loggers
 # -------------------------------------
-eventbus_logger = logging.getLogger('eventbus')
-eventbus_logger.setLevel(logging.DEBUG)
+message_service_logger = logging.getLogger('message_service')
+message_service_logger.setLevel(logging.DEBUG)
 
-if not eventbus_logger.handlers:
-    eventbus_file_handler = logging.FileHandler(os.path.join(LOGS_DIR, 'eventbus.log'))
-    eventbus_file_handler.setLevel(logging.DEBUG)
-    eventbus_file_handler.setFormatter(logging_format)
+if not message_service_logger.handlers:
+    message_service_file_handler = logging.FileHandler(os.path.join(LOGS_DIR, 'message_service.log'))
+    message_service_file_handler.setLevel(logging.DEBUG)
+    message_service_file_handler.setFormatter(logging_format)
 
-    eventbus_logger.addHandler(eventbus_file_handler)
+    message_service_logger.addHandler(message_service_file_handler)
     # Important: Deactivate propagation so that these logs do not also end up in app.log
-    eventbus_logger.propagate = False
+    message_service_logger.propagate = False
 
 # -------------------------------------
 # Configuration of the Aggregator-Loggers

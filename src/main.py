@@ -1,11 +1,15 @@
+import asyncio
 import time
 import os
 
+import aio_pika
+from aio_pika import ExchangeType, IncomingMessage
+
 from config.config import captured_file_path, interface
-from data_collection.packet_monitor import PacketMonitor
+from data_collection.capture_provider import CaptureProvider
 from datastructure.aggregator import Aggregator
-from datastructure.dataclass import Call, EventType
-from datastructure.event_bus import EventBus
+from datastructure.dataclass_models import Call, EventType
+from datastructure.async_message_service import AsyncMessageService, get_message_service
 from my_logging.log_config import app_logger
 
 from datastructure.database.database import init_db
@@ -16,37 +20,62 @@ def main():
     app_logger.info("System is starting...")
 
     # initialise Components
-    eventbus = EventBus()
-    aggregator = Aggregator(eventbus)
+    message_service = AsyncMessageService()
+    aggregator = Aggregator(message_service)
 
     # for development
     #init_db()
 
     # to init the call Context
-    eventbus.subscribe(EventType.CALL_INIT, main_call_init)
+    message_service.subscribe(
+        callback_init_call,
+        "INIT_CALL",
+        ExchangeType.DIRECT,
+        "main_init_call_queue"
+    )
 
-    # file to the network dumps
-    file_path = os.path.abspath(captured_file_path)
     life_capture = False
 
     if life_capture:
-        packet_monitor = PacketMonitor(eventbus, "live", interface)
+        capture_provider = CaptureProvider(message_service, "live", interface)
     else:
-        packet_monitor = PacketMonitor(eventbus, "file", os.path.abspath(captured_file_path))
+        capture_provider = CaptureProvider(message_service, "file", os.path.abspath(captured_file_path))
 
-    packet_monitor.start()
+    capture_provider.start()
 
     # Test the wait for rtp packets
     time.sleep(0.5)
-    packet_monitor.set_context_ready()
+    capture_provider.set_context_ready()
 
-    packet_monitor.join()
+    try:
+        capture_provider.join()
+    except KeyboardInterrupt:
+        print("KeyboardInterrupt")
 
+    finally:
+        # shutdown the capture_provider thread
+        capture_provider.stop()
+        capture_provider.join()
 
+        # shutdown the message_service
+        message_service.close()
 
-def main_call_init(event):
-    print("Now handle the init --> TODO Implementation")
+# für the new RabbitMQ Message Service
+def callback(message: IncomingMessage):
+    print("Received a message")
+    print(message.body.decode('utf-8'))
+    asyncio.run_coroutine_threadsafe(
+        message.ack(),
+        get_message_service().loop
+    )
 
+def callback_init_call(message: IncomingMessage):
+    print("Callback function for INIT_CALL in the main")
+    print(message.body.decode('utf-8'))
+    asyncio.run_coroutine_threadsafe(
+        message.ack(),
+        get_message_service().loop
+    )
 
 if __name__ == '__main__':
     main()

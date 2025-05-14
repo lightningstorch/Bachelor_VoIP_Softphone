@@ -5,15 +5,37 @@ from typing import Tuple, Any, Coroutine, Awaitable, Callable
 import aio_pika
 from aio_pika.abc import AbstractRobustConnection, AbstractRobustChannel, AbstractRobustExchange, AbstractRobustQueue
 from aio_pika.exchange import ExchangeType, Exchange
+from sympy import expand
 
 from config.config import rabbitmq_host, rabbitmq_password, rabbitmq_user, rabbitmq_port
+from my_logging.log_config import app_logger, message_service_logger
 
-# TODO Integrate the logging
-# TODO Advanced Exception handling
-# TODO Restructuring
 
 
 class AsyncMessageService:
+    """
+    Singleton for the RabbitMQ message service with synchronous and asynchronous methods.
+
+    This class encapsulates the connection to RabbitMQ and provides both synchronous and asynchronous
+    asynchronous interfaces for publishing and subscribing to messages.
+    Internally, a separate asyncio event loop is operated in a separate daemon thread for this purpose,
+    so that asynchronous communication is also possible from non-async contexts (e.g. in classic functions).
+    communication is possible.
+
+    Main functions:
+      - Singleton pattern: Only one instance per process.
+      - Event loop in separate thread for concurrent execution.
+      - `publish` / `publish_async`: Send message to Exchange (durable, auto_delete=False).
+      - `subscribe` / `subscribe_async`: Callback registration on queue events with QoS management.
+      - `unsubscribe` / `unsubscribe_async`: Clean unsubscribe and channel closing.
+      - `close` / `close_async`: Orderly shutdown of all subscribers/publishers and the connection.
+
+    Usage:
+        svc = AsyncMessageService() or get_message_service()
+        svc.publish("Hallo Welt", "my_exchange", ExchangeType.DIRECT, routing_key="key")
+        svc.subscribe(my_callback_function, "my_exchange", ExchangeType.Direct, "my_queue", routing_key="key")
+        svc.close()
+    """
     _instance = None
     _lock = threading.Lock()
 
@@ -36,7 +58,6 @@ class AsyncMessageService:
 
         self.is_closed = False
 
-
     def __new__(cls, *args, **kwargs):
         if cls._instance is None:
             with cls._lock:
@@ -44,21 +65,25 @@ class AsyncMessageService:
                     cls._instance = super().__new__(cls)
         return cls._instance
 
-
     def _start_loop(self):
         asyncio.set_event_loop(self.loop)
         self.loop.run_forever()
 
-
     async def _init_connection(self) -> AbstractRobustConnection:
-        return await aio_pika.connect_robust(
-            host=rabbitmq_host,
-            port=rabbitmq_port,
-            login=rabbitmq_user,
-            password=rabbitmq_password,
-            loop=self.loop
-        )
+        for attempt in range(1, 4):
+            try:
+                return await aio_pika.connect_robust(
+                    host=rabbitmq_host,
+                    port=rabbitmq_port,
+                    login=rabbitmq_user,
+                    password=rabbitmq_password,
+                    loop=self.loop
+                )
+            except Exception as e:
+                message_service_logger.error(f"Connection attempt {attempt} failed for RabbitMQ: {e}")
+                await asyncio.sleep(2 * attempt)
 
+        raise ConnectionError("Could not connect to RabbitMQ Message Service")
 
     def publish(self, message, exchange_name: str, exchange_type: ExchangeType, routing_key: str = ""):
         asyncio.run_coroutine_threadsafe(
@@ -66,8 +91,7 @@ class AsyncMessageService:
             self.loop
         )
 
-
-    async def publish_async(self, message, exchange_name: str, exchange_type: ExchangeType, routing_key: str):
+    async def publish_async(self, message, exchange_name: str, exchange_type: ExchangeType, routing_key: str, publish_fail: int = 5):
         channel_exchange = self._publishers.get(exchange_name)
 
         if channel_exchange is None:
@@ -84,12 +108,22 @@ class AsyncMessageService:
         else:
             channel, exchange = channel_exchange
 
+        try:
+            # publish the message in the channel
+            await exchange.publish(
+                aio_pika.Message(message.encode()),
+                routing_key=routing_key,
+            )
+        except Exception as e:
+            message_service_logger.error(f"Error while publishing message to exchange {exchange_name}: {e}")
 
-        # publish the message in the channel
-        await exchange.publish(
-            aio_pika.Message(message.encode()),
-            routing_key=routing_key,
-        )
+            # delete the exchange_name from dict and connecting again -> max of attempts is 5
+            self._publishers.pop(exchange_name)
+            if publish_fail > 0:
+                await self.publish_async(message, exchange_name, exchange_type, routing_key, publish_fail -1)
+            else:
+                message_service_logger.error(f"Could not publish message to exchange {exchange_name} after 5 attempts")
+
 
 
     def subscribe(self, callback: callable, exchange_name: str, exchange_type: str, queue_name: str, routing_key: str = ""):
@@ -98,27 +132,34 @@ class AsyncMessageService:
             self.loop
         )
 
+    async def subscribe_async(self, callback: callable, exchange_name: str, exchange_type: str, queue_name: str, routing_key: str, subscribe_fail: int = 3):
+        try:
+            channel = await self.connection.channel()
 
-    async def subscribe_async(self, callback: callable, exchange_name: str, exchange_type: str, queue_name: str, routing_key: str):
-        channel = await self.connection.channel()
+            # Default prefetch_count is 1; if you see “Got frame for closed channel” errors again,
+            # try increasing prefetch_count (e.g., to 5) to allow multiple unacknowledged messages.
+            await channel.set_qos(prefetch_count=1)
 
-        # Default prefetch_count is 1; if you see “Got frame for closed channel” errors again,
-        # try increasing prefetch_count (e.g., to 5) to allow multiple unacknowledged messages.
-        await channel.set_qos(prefetch_count=1)
+            await channel.declare_exchange(exchange_name, exchange_type, durable=True)
+            queue = await channel.declare_queue(queue_name, durable=True)
+            await queue.bind(exchange_name, routing_key=routing_key)
 
-        await channel.declare_exchange(exchange_name, exchange_type, durable=True)
-        queue = await channel.declare_queue(queue_name, durable=True)
-        await queue.bind(exchange_name, routing_key=routing_key)
+            consumer_tag = await queue.consume(callback)
 
-        consumer_tag = await queue.consume(callback)
+            #save the channel and consumer_tag for closing the channel
+            self._subscribers[queue_name] = (queue, channel, consumer_tag)
+        except Exception as e:
+            message_service_logger.error(f"Error while subscribing to queue {queue_name} with callback function {callback.__name__}: {e}")
 
-        #save the channel and consumer_tag for closing the channel
-        self._subscribers[queue_name] = (queue, channel, consumer_tag)
-
+            if subscribe_fail > 0:
+                await self.subscribe_async(callback, exchange_name, exchange_type, queue_name, routing_key, subscribe_fail -1)
+            else:
+                message_service_logger.error(f"Could not subscribe to queue {queue_name} with callback function {callback.__name__} after 3 attempts")
+                self.unsubscribe(queue_name)
+                return
 
     def unsubscribe(self, queue_name: str):
         asyncio.run_coroutine_threadsafe(self.unsubscribe_async(queue_name), self.loop)
-
 
     async def unsubscribe_async(self, queue_name: str):
         entry = self._subscribers.get(queue_name)
@@ -130,19 +171,17 @@ class AsyncMessageService:
         try:
             await queue.cancel(consumer_tag)
         except Exception as e:
-            print(f"Error while unsubscribing from queue {queue_name}: {e}")
+            message_service_logger.warning(f"Error while unsubscribing from queue {queue_name}: {e}")
 
         await asyncio.sleep(0.1)
 
         try:
             await channel.close()
         except Exception as e:
-            print(f"Error while closing channel for queue {queue_name}: {e}")
-
+            message_service_logger.warning(f"Error while closing channel for queue {queue_name}: {e}")
 
     def close(self):
         asyncio.run_coroutine_threadsafe(self.close_async(), self.loop).result()
-
 
     async def close_async(self):
         self.is_closed = True
@@ -159,8 +198,6 @@ class AsyncMessageService:
 
         # close the connection
         await self.connection.close()
-
-
 
 
 def get_message_service() -> AsyncMessageService:
