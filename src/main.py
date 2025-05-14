@@ -23,8 +23,8 @@ def main():
     message_service = AsyncMessageService()
     aggregator = Aggregator(message_service)
 
-    # for development
-    #init_db()
+    # init the Database
+    init_db()
 
     # to init the call Context
     message_service.subscribe(

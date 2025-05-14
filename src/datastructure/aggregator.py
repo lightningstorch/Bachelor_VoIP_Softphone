@@ -1,9 +1,10 @@
 import asyncio
 import json
+from datetime import datetime
 
 from aio_pika import IncomingMessage, ExchangeType
-from datastructure.database.database import Session
-from datastructure.database.models import Calls
+from datastructure.database.database import Session, store_call_participants
+from datastructure.database.models import Calls, Participants
 from datastructure.dataclass_models import CallInfo, ParticipantInfo, EventType, Info
 from typing import Dict
 from my_logging.log_config import app_logger, aggregator_logger
@@ -45,7 +46,7 @@ class Aggregator:
             self._call_buffer[body.get("call_id")].participants.append(
                 ParticipantInfo(
                     user= body.get("user"),
-                    media_port=body.get("media_port"),
+                    media_port=int(body.get("media_port")),
                     mime_type=body.get("mime_type"),
                 )
             )
@@ -81,7 +82,7 @@ class Aggregator:
 
         app_logger.debug(f"Publish information to initialising for call id '{body.get("call_id")}'")
 
-        self._call_buffer[body.get("call_id")].start_time = body.get("start_time")
+        self._call_buffer[body.get("call_id")].start_time = datetime.fromisoformat(body.get("start_time"))
         print(f"Aggregator: Buffer: {self._call_buffer[body.get("call_id")]}")
 
         # TODO call to api to API
@@ -90,27 +91,22 @@ class Aggregator:
         #self._store_in_db(event.call_id)
         aggregator_logger.debug(f"Call ID '{body.get("call_id")}' has been stored in db")
 
-
-    # TODO check if it works
     def aggregator_call_end(self, message: IncomingMessage):
         # confirm receipt of the message
         asyncio.create_task(message.ack())
         body = json.loads(message.body.decode())
 
         # save directly in the database
-        self._call_buffer[body.get("call_id")].end_time = body.get("end_time")
+        self._call_buffer[body.get("call_id")].end_time = datetime.fromisoformat(body.get("end_time"))
         print(self._call_buffer[body.get("call_id")])
 
         # delete the element in the buffer and save it to the database
         call_info = self._call_buffer.pop(body.get("call_id"))
-        # TODO Integration Database
-        #self._store_in_db(body.get("call_id"), call_info)
+        store_call_participants(body.get("call_id"), call_info)
 
         aggregator_logger.info(f"Call ID '{body.get("call_id")}' has been finished and stored in db")
         print(f"Aggregator: Call ID '{body.get("call_id")}' has been finished and stored in db")
 
-
-    # TODO check if it works
     def aggregator_call_decline(self, message: IncomingMessage):
         # confirm receipt of the message
         asyncio.create_task(message.ack())
@@ -124,18 +120,7 @@ class Aggregator:
 
 
     # TODO implement the database
-    def _store_in_db(self, call_id: str, call_info: CallInfo):
 
-        session = Session()
-
-        db_call = session.query(Calls).get(call_id)
-        buffer_call = self._call_buffer[call_id]
-
-        # inizialise the session
-
-        # prepare the element for storing
-
-        # store the element in the database
 
 
 

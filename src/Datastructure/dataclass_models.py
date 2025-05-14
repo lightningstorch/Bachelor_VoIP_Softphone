@@ -35,9 +35,9 @@ class CallInfo:
     participants: List[ParticipantInfo] = field(default_factory=list)
 
 
-# ------------------------------------------------------
-# Dataclass for the Eventbus to transfer the information
-# ------------------------------------------------------
+# -------------------------------------------------------------
+# Dataclass for the Message_Service to transfer the information
+# -------------------------------------------------------------
 
 class Call(BaseModel):
     type: EventType
