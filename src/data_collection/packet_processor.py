@@ -6,7 +6,8 @@ from dataclasses import asdict
 from aio_pika import ExchangeType
 from cachetools import TTLCache
 
-from datastructure.dataclass_models import Call, Participant, EventType
+from config.config import server_ip
+from datastructure.dataclass_models import Call, Participant, EventType, ServerInfo
 from my_logging.log_config import app_logger
 
 
@@ -37,38 +38,55 @@ def sip_process(sip_packet, message_service):
     sip = sip_packet.sip
     #print(sip.field_names)
 
+    #print(f"{sip_packet.ip.src} --> {sip_packet.ip.dst} / {sip_packet.udp.srcport} --> {sip_packet.udp.dstport}")
+
     # Cache packets to avoid duplicate processing - duplicate on the network
-    if check_dup_packet(sip):
+    if check_dup_packet(sip, sip_packet):
         return
 
-    if hasattr(sip, 'request_line'):
-        match sip.method:
-            case 'INVITE': sip_invite(message_service, sip)
+    if sip_packet.ip.dst == server_ip:
+        # incoming packets from the server
+        if hasattr(sip, 'request_line'):
+            match sip.method:
+                case 'INVITE': sip_incoming_invite(message_service, sip)
 
-            case 'ACK': sip_ack(message_service, sip, sip_packet)
+                case 'ACK': sip_incoming_ack(message_service, sip, sip_packet)
 
-            case 'BYE': print(sip.method)
-                # app_logger.debug(f"BYE detected: {sip.method}")
-                # Request to end the call
+                case 'BYE': print(sip.method)
+                    # app_logger.debug(f"BYE detected: {sip.method}")
+                    # Request to end the call
 
-    elif hasattr(sip, 'status_line'):
-       if int(sip.status_code) == 200:
-            method = getattr(sip, 'cseq_method', 'UNKNOWN')
+        elif hasattr(sip, 'status_line'):
+           if int(sip.status_code) == 200:
+                method = getattr(sip, 'cseq_method', 'UNKNOWN')
 
-            if method == 'INVITE':
-                sip_200_invite(message_service, sip)
+                if method == 'INVITE':
+                    sip_incoming_200_invite(message_service, sip)
 
-            elif method == 'BYE':
-                sip_200_bye(message_service, sip, sip_packet)
+                elif method == 'BYE':
+                    sip_incoming_200_bye(message_service, sip, sip_packet)
 
-       elif int(sip.status_code) == 603:
-           # 603 = Decline
-           sip_603_decline(message_service, sip)
+           elif int(sip.status_code) == 603:
+               # 603 = Decline
+               sip_incoming_603_decline(message_service, sip)
+    else:
+        # outing packets from the server
+        if hasattr(sip, 'request_line') and sip.method == 'INVITE':
+            sip_outgoing_invite(message_service, sip)
+        elif hasattr(sip, 'status_line') and int(sip.status_code) == 200 and getattr(sip, 'cseq_method', 'UNKNOWN') == 'INVITE':
+            sip_outgoing_200_invite(message_service, sip)
 
 
 # TODO implement rtp processing
 def rtp_process(rtp_packet, message_service):
     rtp = rtp_packet.rtp
+
+    print(rtp.field_names)
+
+    print(rtp_packet.ip.src) # always the client ip
+    print(rtp_packet.ip.dst) # always the server ip
+    print(rtp_packet.udp.srcport) # the port at the client
+    print(rtp_packet.udp.dstport) # the port at the server
 
 
 
@@ -81,7 +99,7 @@ def rtp_process(rtp_packet, message_service):
     # put the payload in the call_context
 
 
-def sip_invite(message_service, sip):
+def sip_incoming_invite(message_service, sip):
     app_logger.debug(
         f"INVITE detected: {sip.method},"
         f" Call-ID: {sip.call_id},"
@@ -115,7 +133,7 @@ def sip_invite(message_service, sip):
         routing_key="participation",
     )
 
-def sip_ack(message_service, sip, sip_packet):
+def sip_incoming_ack(message_service, sip, sip_packet):
     print(sip.method)
 
     app_logger.debug(f"ACK detected: {sip.method}, Call-ID: {sip.call_id}")
@@ -134,7 +152,7 @@ def sip_ack(message_service, sip, sip_packet):
     )
 
 
-def sip_200_invite(message_service, sip):
+def sip_incoming_200_invite(message_service, sip):
     # call setup is confirmed
     print(f"{sip.status_code}: {sip.status_line} INVITE")
 
@@ -154,7 +172,6 @@ def sip_200_invite(message_service, sip):
         media_port=sip.sdp_media_port,
         mime_type=sip.sdp_mime_type,
     ).model_dump_json()
-    print("time is waiting")
 
     message_service.publish(
         payload_invite,
@@ -164,7 +181,7 @@ def sip_200_invite(message_service, sip):
     )
 
 
-def sip_200_bye(message_service, sip, sip_packet):
+def sip_incoming_200_bye(message_service, sip, sip_packet):
     print(f"{sip.status_code}: {sip.status_line} BYE")
 
     app_logger.debug(f"BYE accepted: {sip.status_line}, Call-ID: {sip.call_id}")
@@ -183,7 +200,7 @@ def sip_200_bye(message_service, sip, sip_packet):
     )
 
 
-def sip_603_decline(message_service, sip):
+def sip_incoming_603_decline(message_service, sip):
     print(f"{sip.status_code}: {sip.status_line} DECLINE")
 
     app_logger.debug(f"Decline detected: {sip.status_line}, Call-ID: {sip.call_id}")
@@ -200,20 +217,57 @@ def sip_603_decline(message_service, sip):
         routing_key="call_decline",
     )
 
+def sip_outgoing_invite(message_service, sip):
+    payload_server_data = ServerInfo(
+        type=EventType.SERVER_INFO,
+        call_id=sip.call_id,
+        server_ip=sip.sdp_connection_info_address,
+        server_port=sip.sdp_media_port,
+        user=sip.to_user,
+    ).model_dump_json()
 
-def check_dup_packet(sip):
+    message_service.publish(
+        payload_server_data,
+        exchange_name="SERVER_INFO",
+        exchange_type=ExchangeType.DIRECT,
+        routing_key="server_info",
+    )
+
+def sip_outgoing_200_invite(message_service, sip):
+    payload_server_data = ServerInfo(
+        type=EventType.SERVER_INFO,
+        call_id=sip.call_id,
+        server_ip=sip.sdp_connection_info_address,
+        server_port=sip.sdp_media_port,
+        user=sip.from_user,
+    ).model_dump_json()
+
+    message_service.publish(
+        payload_server_data,
+        exchange_name="SERVER_INFO",
+        exchange_type=ExchangeType.DIRECT,
+        routing_key="server_info",
+    )
+
+
+def check_dup_packet(sip, sip_packet):
     """
     To avoid duplicate processing of packets, we cache the packets in a cache.
     Sometimes the package is duplicated in the network.
 
+    :param sip_packet: Network packet from the Network dump
     :param sip: Session Initiation Protocol packet from the Network dump
     :return: True is when the packet exists in the cache - false if the packet isn't in the cache
     """
     status_code = getattr(sip, 'status_code', None)
     method = getattr(sip, 'method', None)
-    # create the cache name
-    unique_cache_id = f"{sip.call_id}-{sip.via_branch}-{status_code if status_code is not None else method}"
 
+    # create the cache name
+    unique_cache_id = (f"{sip.call_id}"
+                       f"-{sip.via_branch}"
+                       f"-{status_code if status_code is not None else method}"
+                       f"-{sip_packet.ip.src}"
+                       f"-{sip_packet.udp.srcport}")
     # check in the cache
     with cache_lock:
         if unique_cache_id not in cache:

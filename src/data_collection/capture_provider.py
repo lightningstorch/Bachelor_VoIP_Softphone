@@ -29,7 +29,8 @@ class CaptureProvider(threading.Thread):
         app_logger.debug("Starting packet monitor thread")
         print("Starting packet monitor thread")
 
-        display_filter = f'(sip or rtp) and ip.dst == {server_ip}'
+        #display_filter = f'(sip or rtp) and ip.dst == {server_ip}'
+        display_filter = f'(sip or rtp)'
 
         # this is needed for a file processing and sometimes also for live capture on windows
         self.loop = asyncio.new_event_loop()

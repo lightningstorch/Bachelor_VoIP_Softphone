@@ -17,10 +17,10 @@ class Aggregator:
 
         self.message_service.subscribe(self.aggregator_new_call, "NEW_CALL", ExchangeType.DIRECT, "aggregator_new_call_queue", "new_call").result(timeout=5)
         self.message_service.subscribe(self.aggregator_participation, "PARTICIPANTS", ExchangeType.DIRECT, "aggregator_participation_queue", "participation").result(timeout=5)
+        self.message_service.subscribe(self.aggregator_participation, "SERVER_INFO", ExchangeType.DIRECT, "aggregator_server_data_queue", "server_info").result(timeout=5)
         self.message_service.subscribe(self.aggregator_ack, "ACK", ExchangeType.DIRECT, "aggregator_ack_queue", "ack").result(timeout=5)
         self.message_service.subscribe(self.aggregator_call_end, "CALL_END", ExchangeType.DIRECT, "aggregator_call_end_queue", "end_call").result(timeout=5)
         self.message_service.subscribe(self.aggregator_call_decline, "CALL_DECLINE", ExchangeType.DIRECT, "aggregator_call_decline_queue", "call_decline").result(timeout=5)
-
 
         app_logger.debug("Aggregator: Starting Aggregator")
 
@@ -41,21 +41,36 @@ class Aggregator:
         asyncio.create_task(message.ack())
         body = json.loads(message.body.decode())
 
-        # store in the buffer
-        if body.get("call_id") in self._call_buffer:
-            self._call_buffer[body.get("call_id")].participants.append(
-                ParticipantInfo(
-                    user= body.get("user"),
-                    ip_address= body.get("ip_address"),
-                    media_port=int(body.get("media_port")),
-                    mime_type=body.get("mime_type"),
-                )
-            )
-
-            aggregator_logger.debug(f"Aggregator: Participant {body.get("user")} is temporarily saved in call_id {body.get("call_id")}")
-            print(f"Aggregator: Buffer: {self._call_buffer[body.get("call_id")]}")
-        else:
+        if body.get('call_id') not in self._call_buffer:
             aggregator_logger.warning(f"Aggregator: Call ID {body.get('call_id')} not found in buffer")
+            return
+
+        fields = {}
+        if "ip_address" in body:
+            fields["ip_address"] = body["ip_address"]
+        if "media_port" in body:
+            fields["media_port"] = int(body["media_port"])
+        if "mime_type" in body:
+            fields["mime_type"] = body["mime_type"]
+        if "server_ip" in body:
+            fields["server_ip"] = body["server_ip"]
+        if "server_port" in body:
+            fields["server_port"] = int(body["server_port"])
+
+        call_info = self._call_buffer[body.get("call_id")]
+
+        participant = next((p for p in call_info.participants if p.user == body.get("user")), None)
+
+        if not participant:
+            # Update the server IP and port for the participant
+            participant = ParticipantInfo(user = body.get("user"))
+            call_info.participants.append(participant)
+            aggregator_logger.debug(f"Aggregator: New participant {body.get('user')} added to call_id {body.get('call_id')}")
+
+        for key, value in fields.items():
+            setattr(participant, key, value)
+
+        aggregator_logger.debug(f"Aggregator: Participant {body.get('user')} updated with all fields for call_id {body.get('call_id')}")
 
     def aggregator_ack(self, message: IncomingMessage):
         # confirm receipt of the message
