@@ -18,6 +18,7 @@ class EventType(Enum):
     PARTICIPANTS = "PARTICIPANTS"
     CALL_INIT = "CALL_INIT"
     CALL_DECLINE = "CALL_DECLINE"
+    SERVER_INFO = "SERVER_INFO"
 
 # -------------------------------------------------------------------
 # Dataclass for the aggregator to store information in the dictionary
@@ -25,9 +26,11 @@ class EventType(Enum):
 @dataclass
 class ParticipantInfo:
     user: str
-    ip_address: str
-    media_port: int
+    ip_address: str = None
+    media_port: int = None
     mime_type: str = None
+    server_ip: str = None
+    server_port: int = None
 
 @dataclass
 class CallInfo:
@@ -59,6 +62,14 @@ class Info(BaseModel):
     call_id: str
     amount_participant: int
     participants: List[ParticipantInfo] = field(default_factory=list)
+
+class ServerInfo(BaseModel):
+    type: EventType
+    call_id: str
+    server_ip: str
+    server_port: int
+    user: str
+
 
 
 

@@ -38,8 +38,6 @@ def sip_process(sip_packet, message_service):
     sip = sip_packet.sip
     #print(sip.field_names)
 
-    #print(f"{sip_packet.ip.src} --> {sip_packet.ip.dst} / {sip_packet.udp.srcport} --> {sip_packet.udp.dstport}")
-
     # Cache packets to avoid duplicate processing - duplicate on the network
     if check_dup_packet(sip, sip_packet):
         return

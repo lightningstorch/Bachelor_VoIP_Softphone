@@ -136,10 +136,6 @@ class Aggregator:
             aggregator_logger.info(f"Call ID '{body.get("call_id")}' has been declined")
 
 
-    # TODO implement the database
-
-
-
 
 
 

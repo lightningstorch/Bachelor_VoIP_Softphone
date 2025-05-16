@@ -22,6 +22,8 @@ class Participants(Base):
     ip_address = Column(String, nullable=False)
     media_port = Column(Integer, nullable=False)
     mime_type = Column(String, nullable=True)
+    server_ip = Column(String, nullable=False)
+    server_port = Column(Integer, nullable=False)
 
     # relationship to calls
     call = relationship("Calls", back_populates="participants")
