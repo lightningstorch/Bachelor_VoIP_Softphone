@@ -25,6 +25,7 @@ class EventType(Enum):
 @dataclass
 class ParticipantInfo:
     user: str
+    ip_address: str
     media_port: int
     mime_type: str = None
 
@@ -49,6 +50,7 @@ class Participant(BaseModel):
     type: EventType
     call_id: str
     user: str
+    ip_address: str
     media_port: int
     mime_type: str
 

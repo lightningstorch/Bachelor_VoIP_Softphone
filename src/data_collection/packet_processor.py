@@ -23,13 +23,14 @@ def process_packets(packet, message_service, context_ready):
         sip_process(packet, message_service)
 
     # elif 'RTP' in packet:
-        # print("RTP packet detected")
-        # app_logger.debug("RTP packet detected")
-        #
-        # # wait until context stuff is ready
-        # context_ready.wait()
-        #
-        # rtp_process(packet, eventbus)
+    #     print("RTP packet detected")
+    #     app_logger.debug("RTP packet detected")
+    #
+    #     # wait until context stuff is ready
+    #     context_ready.wait()
+    #
+    #     # process RTP paket
+    #     rtp_process(packet, message_service)
 
 # TODO filtering of duplications
 def sip_process(sip_packet, message_service):
@@ -67,7 +68,17 @@ def sip_process(sip_packet, message_service):
 
 # TODO implement rtp processing
 def rtp_process(rtp_packet, message_service):
-    pass
+    rtp = rtp_packet.rtp
+
+
+
+    # get the SSRC from the RTP packet with the SIP call --> dependency
+
+    # get the call_context
+
+    # get the payload and convert it to bitarray
+
+    # put the payload in the call_context
 
 
 def sip_invite(message_service, sip):
@@ -92,6 +103,7 @@ def sip_invite(message_service, sip):
         type=EventType.PARTICIPANTS,
         call_id=sip.call_id,
         user=sip.from_user,
+        ip_address=sip.sdp_connection_info_address,
         media_port=sip.sdp_media_port,
         mime_type=sip.sdp_mime_type,
     ).model_dump_json()
@@ -138,6 +150,7 @@ def sip_200_invite(message_service, sip):
         type=EventType.PARTICIPANTS,
         call_id=sip.call_id,
         user=sip.to_user,
+        ip_address=sip.sdp_connection_info_address,
         media_port=sip.sdp_media_port,
         mime_type=sip.sdp_mime_type,
     ).model_dump_json()

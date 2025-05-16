@@ -19,6 +19,7 @@ class Participants(Base):
     id = Column(Integer, primary_key=True)
     call_id = Column(String, ForeignKey('calls.id'), nullable=False)
     user = Column(String, nullable=False)
+    ip_address = Column(String, nullable=False)
     media_port = Column(Integer, nullable=False)
     mime_type = Column(String, nullable=True)
 

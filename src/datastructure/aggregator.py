@@ -3,7 +3,7 @@ import json
 from datetime import datetime
 
 from aio_pika import IncomingMessage, ExchangeType
-from datastructure.database.database import Session, store_call_participants
+from datastructure.database.database import Session, store_call_start, store_call_end
 from datastructure.database.models import Calls, Participants
 from datastructure.dataclass_models import CallInfo, ParticipantInfo, EventType, Info
 from typing import Dict
@@ -46,6 +46,7 @@ class Aggregator:
             self._call_buffer[body.get("call_id")].participants.append(
                 ParticipantInfo(
                     user= body.get("user"),
+                    ip_address= body.get("ip_address"),
                     media_port=int(body.get("media_port")),
                     mime_type=body.get("mime_type"),
                 )
@@ -88,7 +89,8 @@ class Aggregator:
         # TODO call to api to API
 
         # save to the database
-        #self._store_in_db(event.call_id)
+        call_info = self._call_buffer.get(body.get("call_id"))
+        store_call_start(body.get("call_id"), call_info)
         aggregator_logger.debug(f"Call ID '{body.get("call_id")}' has been stored in db")
 
     def aggregator_call_end(self, message: IncomingMessage):
@@ -102,7 +104,7 @@ class Aggregator:
 
         # delete the element in the buffer and save it to the database
         call_info = self._call_buffer.pop(body.get("call_id"))
-        store_call_participants(body.get("call_id"), call_info)
+        store_call_end(body.get("call_id"), call_info)
 
         aggregator_logger.info(f"Call ID '{body.get("call_id")}' has been finished and stored in db")
         print(f"Aggregator: Call ID '{body.get("call_id")}' has been finished and stored in db")
