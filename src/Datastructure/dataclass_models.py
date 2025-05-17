@@ -31,6 +31,7 @@ class ParticipantInfo:
     mime_type: str = None
     server_ip: str = None
     server_port: int = None
+    ssrc: str = None
 
 @dataclass
 class CallInfo:

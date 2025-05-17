@@ -72,3 +72,18 @@ def store_call_end(call_id: str, call_info: CallInfo):
 
     session.close()
 
+def store_ssrc(call_id: str, ssrc: str, user: str):
+    session = Session()
+
+    participant = session.query(Participants).filter_by(call_id=call_id, user=user).one_or_none()
+    if participant:
+        participant.ssrc = str(ssrc)
+        session.commit()
+        app_logger.debug(f"SSRC '{ssrc}' has been updated for call ID '{call_id}' in db")
+        print(f"SSRC '{ssrc}' has been updated for call ID '{call_id}' in db")
+    else:
+        app_logger.warning(f"Call ID '{call_id}' not found in db")
+        print(f"Call ID '{call_id}' not found in db")
+
+    session.close()
+
