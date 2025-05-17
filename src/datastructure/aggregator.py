@@ -3,7 +3,7 @@ import json
 from datetime import datetime
 
 from aio_pika import IncomingMessage, ExchangeType
-from datastructure.database.database import Session, store_call_start, store_call_end
+from datastructure.database.database import Session, store_call_start, store_call_end, store_ssrc
 from datastructure.database.models import Calls, Participants
 from datastructure.dataclass_models import CallInfo, ParticipantInfo, EventType, Info
 from typing import Dict
@@ -21,6 +21,7 @@ class Aggregator:
         self.message_service.subscribe(self.aggregator_ack, "ACK", ExchangeType.DIRECT, "aggregator_ack_queue", "ack").result(timeout=5)
         self.message_service.subscribe(self.aggregator_call_end, "CALL_END", ExchangeType.DIRECT, "aggregator_call_end_queue", "end_call").result(timeout=5)
         self.message_service.subscribe(self.aggregator_call_decline, "CALL_DECLINE", ExchangeType.DIRECT, "aggregator_call_decline_queue", "call_decline").result(timeout=5)
+        self.message_service.subscribe(self.aggregator_ssrc, "SSRC", ExchangeType.DIRECT, "aggregator_ssrc_queue", "ssrc").result(timeout=5)
 
         app_logger.debug("Aggregator: Starting Aggregator")
 
@@ -135,11 +136,16 @@ class Aggregator:
             print(f"Removing call id '{body.get("call_id")}'")
             aggregator_logger.info(f"Call ID '{body.get("call_id")}' has been declined")
 
+    def aggregator_ssrc(self, message: IncomingMessage):
+        # confirm receipt of the message
+        asyncio.create_task(message.ack())
+        body = json.loads(message.body.decode())
 
+        participant = next((p for p in self._call_buffer[body.get("call_id")].participants if p.user == body.get("user")), None)
 
+        if participant:
+            participant.ssrc = body.get("ssrc")
 
-
-
-
-
+        store_ssrc(body.get("call_id"), body.get("ssrc"), body.get("user"))
+        aggregator_logger.debug(f"SSRC '{body.get('ssrc')}' has been stored in db")
 

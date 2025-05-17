@@ -1,26 +1,22 @@
 import threading
 import asyncio
-import time
-
 import pyshark
 
-from config.config import server_ip
-from data_collection.packet_processor import process_packets
 from my_logging.log_config import app_logger
 from utils.validation import validate_file
 
 
 class CaptureProvider(threading.Thread):
-    def __init__(self, message_service, source_type, source_value):
+    def __init__(self, message_service, source_type, source_value, queue):
         super().__init__()
         self.daemon = True
-        self.context_ready = threading.Event()
         self._stop_event = threading.Event()
         self.capture = None
         self.loop = None
 
         self.source_type = source_type
         self.source_value = source_value
+        self.queue = queue
 
         self._message_service = message_service
 
@@ -49,7 +45,8 @@ class CaptureProvider(threading.Thread):
             try:
                 self.capture = pyshark.LiveCapture(interface=self.source_value, display_filter=display_filter)
                 for packet in self.capture.sniff_continuously():
-                    process_packets(packet, self._message_service, self.context_ready)
+                    #process_packets(packet, self._message_service, self.context_ready)
+                    self.queue.put(packet)
 
             except Exception as e:
                 app_logger.error(f"Problem occurred while live capture: {e}")
@@ -67,16 +64,14 @@ class CaptureProvider(threading.Thread):
         try:
             self.capture = pyshark.FileCapture(input_file=self.source_value, display_filter=display_filter)
             for packet in self.capture:
-                process_packets(packet, self._message_service, self.context_ready)
+                #process_packets(packet, self._message_service, self.context_ready)
+                self.queue.put(packet)
 
         except Exception as e:
             app_logger.error(f"Problem occurred while parsing the document: {e}")
         finally:
             self.capture.close()
             self.capture = None
-
-    def set_context_ready(self):
-        self.context_ready.set()
 
     def stop(self):
         self._stop_event.set()
