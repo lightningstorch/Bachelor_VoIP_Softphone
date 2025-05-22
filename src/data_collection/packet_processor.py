@@ -4,21 +4,26 @@ import threading
 from collections import deque, defaultdict
 from dataclasses import asdict
 from queue import Empty
+from typing import Tuple
+
 from aio_pika import ExchangeType
 from cachetools import TTLCache
+
+from call_context.manager_call_context import ManagerCallContext
 from config.config import server_ip
 from datastructure.dataclass_models import Call, Participant, EventType, ServerInfo, ParticipantInfo
 from my_logging.log_config import app_logger
 
 
 class PacketProcessor(threading.Thread):
-    def __init__(self, message_service, queue, call_map, ssrc_to_call_id):
+    def __init__(self, message_service, queue, manager_call_context: ManagerCallContext):
         super().__init__()
         self.daemon = True
         self._stop_event = threading.Event()
         self._context_ready = threading.Event()
         self.queue = queue
         self._message_service = message_service
+        self.manager_call_context = manager_call_context
 
         # Cache for the Session Initiation Protocol to avoid duplicate processing
         self._cache = TTLCache(maxsize=1000, ttl=60)
@@ -29,9 +34,10 @@ class PacketProcessor(threading.Thread):
 
         # Call context buffer to store the information for rtp processing
         self._ip_port_buffer: dict[str, list[ParticipantInfo]] = defaultdict(list)
-
-        self._call_map = call_map
-        self._ssrc_to_call_id = ssrc_to_call_id
+        # Tuple[call_id, user]
+        self._call_map: dict[Tuple[str, int, str, int], Tuple[str, str]] = {}
+        # Tuple[ssrc, call_id, user]
+        self._ssrc_to_call_id: dict[str, Tuple[str, str]] = {}
 
     def set_context_ready(self):
         self._context_ready.set()
@@ -55,7 +61,7 @@ class PacketProcessor(threading.Thread):
                 self._sip_process(packet)
 
             elif hasattr(packet, 'rtp') and packet.ip.dst == server_ip:
-                print("RTP packet detected")
+                print(f"RTP packet detected SSRC: {packet.rtp.ssrc} - Seq: {packet.rtp.seq}")
                 self._rtp_process(packet)
 
     def _sip_process(self, sip_packet):
@@ -98,18 +104,11 @@ class PacketProcessor(threading.Thread):
             elif hasattr(sip, 'status_line') and int(sip.status_code) == 200 and getattr(sip, 'cseq_method', 'UNKNOWN') == 'INVITE':
                 self._sip_outgoing_200_invite(sip)
 
-    # TODO implement rtp processing
     def _rtp_process(self, rtp_packet):
         rtp = rtp_packet.rtp
         # print(rtp.field_names)
 
         key = (rtp_packet.ip.src, rtp_packet.udp.srcport, rtp_packet.ip.dst, rtp_packet.udp.dstport)
-
-        if self._context_ready and key not in self._call_map:
-            # store the packet in the buffer
-            self._waiting_rtp.append(rtp_packet)
-            print(f"RTP packet not in call_map")
-            return
 
         call_id, user = self._call_map[key]
 
@@ -130,26 +129,8 @@ class PacketProcessor(threading.Thread):
                 routing_key="ssrc",
             )
 
-        # inizial the call_context
-
-        # get the payload out of the rtp packet
-        #print(rtp.payload.binary_value)
-        binary_value = rtp.payload.binary_value
-
-        # insert the payload in the call_context queue
-
-
-
-
-
-
-        # get the SSRC from the RTP packet with the SIP call --> dependency
-
-        # get the call_context
-
-        # get the payload and convert it to bitarray
-
-        # put the payload in the call_context
+        #binary_value = rtp.payload.binary_value
+        self.manager_call_context.enqueue_packet(call_id, rtp.ssrc, rtp_packet)
 
     # TODO reduce the code duplication
 
@@ -269,6 +250,8 @@ class PacketProcessor(threading.Thread):
             routing_key="end_call",
         )
 
+        self.remove_from_buffer(sip.call_id)
+
     def _sip_incoming_603_decline(self, sip):
         print(f"{sip.status_code}: {sip.status_line} DECLINE")
 
@@ -359,10 +342,25 @@ class PacketProcessor(threading.Thread):
 
         # switch the data from buffer to call_map for rtp categorisation
         if self._call_ready(call_id):
-            participants_list = self._ip_port_buffer.pop(call_id)
+            participants_list = self._ip_port_buffer.get(call_id)
             for p in participants_list:
                 key = (p.ip_address, p.media_port, p.server_ip, p.server_port)
                 self._call_map[key] = (call_id, p.user)
+
+    def remove_from_buffer(self, call_id: str):
+        """
+        Remove the call from the buffers
+        :param call_id: id from the call
+        """
+        if call_id in self._ip_port_buffer:
+            participants_list = self._ip_port_buffer.pop(call_id)
+            for p in participants_list:
+                key = (p.ip_address, p.media_port, p.server_ip, p.server_port)
+                self._call_map.pop(key)
+
+            for key, (call, user) in list(self._ssrc_to_call_id.items()):
+                if call == call_id:
+                    self._ssrc_to_call_id.pop(key)
 
     def _call_ready(self, call_id: str) -> bool:
         """

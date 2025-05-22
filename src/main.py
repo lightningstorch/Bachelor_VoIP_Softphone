@@ -4,6 +4,8 @@ from queue import Queue
 from typing import Tuple
 
 from aio_pika import ExchangeType, IncomingMessage
+
+from call_context.manager_call_context import ManagerCallContext
 from config.config import captured_file_path, interface
 from data_collection.capture_provider import CaptureProvider
 from data_collection.packet_processor import PacketProcessor
@@ -20,6 +22,8 @@ def main():
     # initialise Components
     message_service = AsyncMessageService()
     aggregator = Aggregator(message_service)
+    manager_call_context = ManagerCallContext(message_service)
+
 
     # init the Database
     init_db()
@@ -28,24 +32,6 @@ def main():
     # the queue for capture_procider and packet_processor
     queue_threads = Queue()
 
-    # TODO threadsafe implementation
-    # to recognize the SSRC from the rtp package for the respective call_id
-    call_map: dict[Tuple[str, int, str, int], Tuple[str, str]] = {}
-
-    # TODO threadsafe implementation
-    # ssrc to call_id mapping
-    ssrc_to_call_id: dict[str, Tuple[str, str]] = {}
-
-
-    message_service.subscribe(
-        callback_init_call,
-        "INIT_CALL",
-        ExchangeType.DIRECT,
-        "main_init_call_queue"
-    )
-
-
-
     life_capture = False
 
     if life_capture:
@@ -53,7 +39,7 @@ def main():
     else:
         capture_provider = CaptureProvider(message_service, "file", os.path.abspath(captured_file_path), queue_threads)
 
-    packet_processor_thread = PacketProcessor(message_service, queue_threads, call_map, ssrc_to_call_id)
+    packet_processor_thread = PacketProcessor(message_service, queue_threads, manager_call_context)
 
     capture_provider.start()
     packet_processor_thread.start()

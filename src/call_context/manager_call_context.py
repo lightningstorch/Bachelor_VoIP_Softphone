@@ -1,5 +1,6 @@
 import threading
 from collections import defaultdict
+from typing import DefaultDict
 
 from call_context.call_context import CallContext
 from datastructure.async_message_service import AsyncMessageService
@@ -17,7 +18,8 @@ class ManagerCallContext:
     def __init__(self, message_service: AsyncMessageService):
         # to store all the call contexts with SSRC under the call_id
         self.all_contexts: dict[str, CallContext] = {}
-        self._known_ssrc: dict[str, set[str]] = defaultdict(set)
+        # [call_id] -> [list of ssrc]
+        self._known_ssrc: DefaultDict[str, set[str]] = defaultdict(set)
         self.lock = threading.Lock()
         self.message_service = message_service
 
@@ -47,16 +49,16 @@ class ManagerCallContext:
             if call_context is None:
                 call_context = CallContext(call_id, self.message_service)
                 self.all_contexts[call_id] = call_context
-                self._known_ssrc[call_id].add(ssrc)
                 app_logger.debug(f"Call context created for Call ID {call_id} with SSRC {ssrc}.")
 
-            ssrc_list = self._known_ssrc.get(call_id, set())
-            if ssrc not in ssrc_list:
-                call_context.insert_ssrc()
+            if ssrc not in self._known_ssrc[call_id]:
+                call_context.insert_ssrc(ssrc)
                 self._known_ssrc[call_id].add(ssrc)
                 app_logger.debug(f"SSRC {ssrc} added to existing Call ID context {call_id}.")
             else:
                 app_logger.debug(f"SSRC {ssrc} already exists in call ID context {call_id}.")
+
+        return call_context
 
     def enqueue_packet(self, call_id: str, ssrc: str, packet):
         """
@@ -66,12 +68,11 @@ class ManagerCallContext:
         :param call_id: The call ID to enqueue the packet for
         :param packet: The packet to enqueue
         """
-        call_context = self.get_call_context(call_id)
-        if call_context:
-            call_context.enqueue_packet(ssrc, packet)
-            app_logger.debug(f"Packet enqueued for Call ID {call_id} with SSRC {ssrc}.")
-        else:
-            app_logger.debug(f"Call ID {call_id} not found. Packet not enqueued.")
+        #print(f"Enqueue packet for Call ID {call_id} with SSRC {ssrc}.")
+        call_context = self.create_or_insert_call_context(call_id, ssrc)
+
+        call_context.enqueue_packet(ssrc, packet)
+        app_logger.debug(f"Packet enqueued for Call ID {call_id} with SSRC {ssrc}.")
 
     def end_call(self, call_id: str):
         """
@@ -91,6 +92,6 @@ class ManagerCallContext:
         """
         with self.lock:
             for call_id, call_context in self.all_contexts.items():
-                call_context.stop().join()
+                call_context.stop()
                 del self.all_contexts[call_id]
                 app_logger.debug(f"Call ID {call_id} stopped and removed.")

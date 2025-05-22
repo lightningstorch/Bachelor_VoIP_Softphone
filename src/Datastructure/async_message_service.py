@@ -96,6 +96,7 @@ class AsyncMessageService:
 
         if channel_exchange is None:
             channel = await self.connection.channel(publisher_confirms=True)
+            message_service_logger.debug(f"Opened AMQP channel {channel.number} for subscribe to {exchange_name}")
             # declare the exchange
             exchange = await channel.declare_exchange(
                 exchange_name,
@@ -138,7 +139,7 @@ class AsyncMessageService:
 
             # Default prefetch_count is 1; if you see “Got frame for closed channel” errors again,
             # try increasing prefetch_count (e.g., to 5) to allow multiple unacknowledged messages.
-            await channel.set_qos(prefetch_count=1)
+            await channel.set_qos(prefetch_count=2)
 
             await channel.declare_exchange(exchange_name, exchange_type, durable=True)
             queue = await channel.declare_queue(queue_name, durable=True)

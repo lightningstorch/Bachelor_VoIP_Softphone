@@ -82,21 +82,6 @@ class Aggregator:
         if body.get("call_id") not in self._call_buffer:
             return
 
-        # send a message to init the call (main)
-        participants = self._call_buffer[body.get("call_id")].participants
-        payload = Info(
-                type=EventType.CALL_INIT,
-                call_id=body.get("call_id"),
-                amount_participant= len(participants),
-                participants= participants,
-            ).model_dump_json()
-
-        self.message_service.publish(
-            payload,
-            exchange_name="INIT_CALL",
-            exchange_type=ExchangeType.DIRECT,
-        )
-
         app_logger.debug(f"Publish information to initialising for call id '{body.get("call_id")}'")
 
         self._call_buffer[body.get("call_id")].start_time = datetime.fromisoformat(body.get("start_time"))
