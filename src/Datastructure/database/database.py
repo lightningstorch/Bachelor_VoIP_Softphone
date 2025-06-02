@@ -44,6 +44,7 @@ def store_call_start(call_id: str, call_info: CallInfo):
                 mime_type=participant.mime_type,
                 server_ip=participant.server_ip,
                 server_port=participant.server_port,
+                ssrc=participant.ssrc
             )
             session.add(new_participant)
 

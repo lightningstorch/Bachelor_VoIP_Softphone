@@ -16,7 +16,7 @@ class CallContext:
         self._queues: dict[str, Queue] = {}
         self._analysers: dict[str, AudioAnalysis] = {}
         self._buffers : dict[str, Buffer] = {}
-        self._buffer_size = 3
+        self._buffer_size = 3 # Number of packets to buffer before processing
 
         self._stop_event = threading.Event()
         self.thread = threading.Thread(target=self.run, name=f"CallContextThread-{self.call_id}", daemon=True)
