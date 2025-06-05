@@ -1,13 +1,13 @@
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Optional, Dict, List
+from typing import List
 from enum import Enum
 from pydantic import BaseModel
 
 
 # -------------------------------------------------------------------
-# Categories of events
+# Categories
 # -------------------------------------------------------------------
 class EventType(Enum):
     NEW_CALL = "NEW_CALL"
@@ -19,6 +19,7 @@ class EventType(Enum):
     CALL_INIT = "CALL_INIT"
     CALL_DECLINE = "CALL_DECLINE"
     SERVER_INFO = "SERVER_INFO"
+    TALKING_INTERVAL = "TALKING_INTERVAL"
 
 # -------------------------------------------------------------------
 # Dataclass for the aggregator to store information in the dictionary
@@ -70,6 +71,15 @@ class ServerInfo(BaseModel):
     server_ip: str
     server_port: int
     user: str
+
+
+class TalkingInterval(BaseModel):
+    type: EventType
+    call_id: str
+    ssrc: str
+    type: str # "speech" or "silence"
+    start: float
+    end: float
 
 
 
