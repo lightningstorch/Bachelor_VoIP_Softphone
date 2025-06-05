@@ -1,9 +1,8 @@
 import asyncio
 import os
 from queue import Queue
-from typing import Tuple
 
-from aio_pika import ExchangeType, IncomingMessage
+from aio_pika import IncomingMessage
 
 from call_context.manager_call_context import ManagerCallContext
 from config.config import captured_file_path, interface

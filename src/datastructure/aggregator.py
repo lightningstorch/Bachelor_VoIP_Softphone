@@ -3,9 +3,8 @@ import json
 from datetime import datetime
 
 from aio_pika import IncomingMessage, ExchangeType
-from datastructure.database.database import Session, store_call_start, store_call_end, store_ssrc
-from datastructure.database.models import Calls, Participants
-from datastructure.dataclass_models import CallInfo, ParticipantInfo, EventType, Info
+from datastructure.database.database import store_call_start, store_call_end, store_ssrc
+from datastructure.dataclass_models import CallInfo, ParticipantInfo
 from typing import Dict
 from my_logging.log_config import app_logger, aggregator_logger
 

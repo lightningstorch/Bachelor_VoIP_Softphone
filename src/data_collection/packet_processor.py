@@ -61,7 +61,7 @@ class PacketProcessor(threading.Thread):
                 self._sip_process(packet)
 
             elif hasattr(packet, 'rtp') and packet.ip.dst == server_ip:
-                print(f"RTP packet detected SSRC: {packet.rtp.ssrc} - Seq: {packet.rtp.seq}")
+                #print(f"RTP packet detected SSRC: {packet.rtp.ssrc} - Seq: {packet.rtp.seq}")
                 self._rtp_process(packet)
 
     def _sip_process(self, sip_packet):
@@ -250,7 +250,8 @@ class PacketProcessor(threading.Thread):
             routing_key="end_call",
         )
 
-        self.remove_from_buffer(sip.call_id)
+        self.manager_call_context.end_call(sip.call_id)
+        #self.remove_from_buffer(sip.call_id)
 
     def _sip_incoming_603_decline(self, sip):
         print(f"{sip.status_code}: {sip.status_line} DECLINE")

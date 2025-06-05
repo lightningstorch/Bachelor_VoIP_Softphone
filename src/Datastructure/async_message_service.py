@@ -1,14 +1,13 @@
 import asyncio
 import threading
-from typing import Tuple, Any, Coroutine, Awaitable, Callable
+from typing import Tuple
 
 import aio_pika
 from aio_pika.abc import AbstractRobustConnection, AbstractRobustChannel, AbstractRobustExchange, AbstractRobustQueue
-from aio_pika.exchange import ExchangeType, Exchange
-from sympy import expand
+from aio_pika.exchange import ExchangeType
 
 from config.config import rabbitmq_host, rabbitmq_password, rabbitmq_user, rabbitmq_port
-from my_logging.log_config import app_logger, message_service_logger
+from my_logging.log_config import message_service_logger
 
 
 

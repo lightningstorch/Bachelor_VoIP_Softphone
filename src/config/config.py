@@ -15,7 +15,13 @@ interface = _config['network']['interface']
 database_type = _config['database']['type']
 database_connection = _config['database']['connection_string']
 
-captured_file_path = _config['captured_file']['file_path']
+if _config['captured_file']['path'] == 'relative':
+    captured_file_path_relativ = _config['captured_file']['file_path']
+
+    project_root = Path(__file__).resolve().parents[2]
+    captured_file_path = (project_root / captured_file_path_relativ).resolve()
+else:
+    captured_file_path = _config['captured_file']['file_path']
 
 
 # RabbitMQ Message Service
