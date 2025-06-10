@@ -55,6 +55,9 @@ def main():
         packet_processor_thread.stop()
         packet_processor_thread.join()
 
+        # shutdown the CallContextManager
+        manager_call_context.shutdown_all_calls()
+
         # shutdown the message_service
         message_service.close()
 

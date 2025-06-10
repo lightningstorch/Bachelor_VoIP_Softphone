@@ -14,7 +14,6 @@ from config.config import server_ip
 from datastructure.dataclass_models import Call, Participant, EventType, ServerInfo, ParticipantInfo
 from my_logging.log_config import app_logger
 
-
 class PacketProcessor(threading.Thread):
     def __init__(self, message_service, queue, manager_call_context: ManagerCallContext):
         super().__init__()
@@ -69,7 +68,7 @@ class PacketProcessor(threading.Thread):
         #print(sip.field_names)
 
         # Cache packets to avoid duplicate processing - duplicate on the network
-        if self.check_dup_packet(sip, sip_packet):
+        if self._check_dup_packet(sip, sip_packet):
             return
 
         if sip_packet.ip.dst == server_ip:
@@ -100,9 +99,9 @@ class PacketProcessor(threading.Thread):
         else:
             # outing packets from the server
             if hasattr(sip, 'request_line') and sip.method == 'INVITE':
-                self._sip_outgoing_invite(sip)
+                self._outgoing_invite(sip, sip.to_user)
             elif hasattr(sip, 'status_line') and int(sip.status_code) == 200 and getattr(sip, 'cseq_method', 'UNKNOWN') == 'INVITE':
-                self._sip_outgoing_200_invite(sip)
+                self._outgoing_invite(sip, sip.from_user)
 
     def _rtp_process(self, rtp_packet):
         rtp = rtp_packet.rtp
@@ -132,7 +131,9 @@ class PacketProcessor(threading.Thread):
         #binary_value = rtp.payload.binary_value
         self.manager_call_context.enqueue_packet(call_id, rtp.ssrc, rtp_packet)
 
-    # TODO reduce the code duplication
+    # =========================================================
+    #                   SIP Methods
+    # =========================================================
 
     def _sip_incoming_invite(self, sip):
         app_logger.debug(
@@ -152,34 +153,36 @@ class PacketProcessor(threading.Thread):
             routing_key="new_call",
         )
 
-        payload_participants = Participant(
-            type=EventType.PARTICIPANTS,
-            call_id=sip.call_id,
-            user=sip.from_user,
-            ip_address=sip.sdp_connection_info_address,
-            media_port=sip.sdp_media_port,
-            mime_type=sip.sdp_mime_type,
-        ).model_dump_json()
+        self._publish_and_store_participant(sip, sip.from_user)
 
-        self._message_service.publish(
-            payload_participants,
-            exchange_name="PARTICIPANTS",
-            exchange_type=ExchangeType.DIRECT,
-            routing_key="participation",
-        )
-
-        # store in buffer for RTP processing
-        fields = {
-            "user": sip.from_user,
-            "ip_address": sip.sdp_connection_info_address,
-            "media_port": sip.sdp_media_port,
-            "mime_type": sip.sdp_mime_type,
-        }
-        self._store_in_buffer(sip.call_id, **fields)
+        # payload_participants = Participant(
+        #     type=EventType.PARTICIPANTS,
+        #     call_id=sip.call_id,
+        #     user=sip.from_user,
+        #     ip_address=sip.sdp_connection_info_address,
+        #     media_port=sip.sdp_media_port,
+        #     mime_type=sip.sdp_mime_type,
+        # ).model_dump_json()
+        #
+        # self._message_service.publish(
+        #     payload_participants,
+        #     exchange_name="PARTICIPANTS",
+        #     exchange_type=ExchangeType.DIRECT,
+        #     routing_key="participation",
+        # )
+        #
+        # # store in buffer for RTP processing
+        # fields = {
+        #     "user": sip.from_user,
+        #     "ip_address": sip.sdp_connection_info_address,
+        #     "media_port": sip.sdp_media_port,
+        #     "mime_type": sip.sdp_mime_type,
+        # }
+        # self._store_in_buffer(sip.call_id, **fields)
 
     def _sip_incoming_200_invite(self, sip):
         # call setup is confirmed
-        print(f"{sip.status_code}: {sip.status_line} INVITE")
+        #print(f"{sip.status_code}: {sip.status_line} INVITE")
 
         app_logger.debug(
             f"INVITE accepted: {sip.status_line},"
@@ -189,30 +192,32 @@ class PacketProcessor(threading.Thread):
             f" user: {sip.to_user}"
         )
 
-        payload_invite = Participant(
-            type=EventType.PARTICIPANTS,
-            call_id=sip.call_id,
-            user=sip.to_user,
-            ip_address=sip.sdp_connection_info_address,
-            media_port=sip.sdp_media_port,
-            mime_type=sip.sdp_mime_type,
-        ).model_dump_json()
+        self._publish_and_store_participant(sip, sip.to_user)
 
-        self._message_service.publish(
-            payload_invite,
-            exchange_name="PARTICIPANTS",
-            exchange_type=ExchangeType.DIRECT,
-            routing_key="participation",
-        )
-
-        # store in buffer for RTP processing
-        fields = {
-            "user": sip.to_user,
-            "ip_address": sip.sdp_connection_info_address,
-            "media_port": sip.sdp_media_port,
-            "mime_type": sip.sdp_mime_type,
-        }
-        self._store_in_buffer(sip.call_id, **fields)
+        # payload_invite = Participant(
+        #     type=EventType.PARTICIPANTS,
+        #     call_id=sip.call_id,
+        #     user=sip.to_user,
+        #     ip_address=sip.sdp_connection_info_address,
+        #     media_port=sip.sdp_media_port,
+        #     mime_type=sip.sdp_mime_type,
+        # ).model_dump_json()
+        #
+        # self._message_service.publish(
+        #     payload_invite,
+        #     exchange_name="PARTICIPANTS",
+        #     exchange_type=ExchangeType.DIRECT,
+        #     routing_key="participation",
+        # )
+        #
+        # # store in buffer for RTP processing
+        # fields = {
+        #     "user": sip.to_user,
+        #     "ip_address": sip.sdp_connection_info_address,
+        #     "media_port": sip.sdp_media_port,
+        #     "mime_type": sip.sdp_mime_type,
+        # }
+        # self._store_in_buffer(sip.call_id, **fields)
 
     def _sip_incoming_ack(self, sip, sip_packet):
         print(sip.method)
@@ -270,13 +275,13 @@ class PacketProcessor(threading.Thread):
             routing_key="call_decline",
         )
 
-    def _sip_outgoing_invite(self, sip):
+    def _outgoing_invite(self, sip, user):
         payload_server_data = ServerInfo(
             type=EventType.SERVER_INFO,
             call_id=sip.call_id,
             server_ip=sip.sdp_connection_info_address,
             server_port=sip.sdp_media_port,
-            user=sip.to_user,
+            user=user,
         ).model_dump_json()
 
         self._message_service.publish(
@@ -288,31 +293,7 @@ class PacketProcessor(threading.Thread):
 
         # store in buffer for RTP processing
         fields = {
-            "user": sip.to_user,
-            "server_ip": sip.sdp_connection_info_address,
-            "server_port": sip.sdp_media_port
-        }
-        self._store_in_buffer(sip.call_id, **fields)
-
-    def _sip_outgoing_200_invite(self, sip):
-        payload_server_data = ServerInfo(
-            type=EventType.SERVER_INFO,
-            call_id=sip.call_id,
-            server_ip=sip.sdp_connection_info_address,
-            server_port=sip.sdp_media_port,
-            user=sip.from_user,
-        ).model_dump_json()
-
-        self._message_service.publish(
-            payload_server_data,
-            exchange_name="SERVER_INFO",
-            exchange_type=ExchangeType.DIRECT,
-            routing_key="server_info",
-        )
-
-        # store in buffer for RTP processing
-        fields = {
-            "user": sip.from_user,
+            "user": user,
             "server_ip": sip.sdp_connection_info_address,
             "server_port": sip.sdp_media_port
         }
@@ -321,6 +302,32 @@ class PacketProcessor(threading.Thread):
     # =========================================================
     #                   Helper Methods
     # =========================================================
+
+    def _publish_and_store_participant(self, sip, user):
+        payload_participants = Participant(
+            type=EventType.PARTICIPANTS,
+            call_id=sip.call_id,
+            user=user,
+            ip_address=sip.sdp_connection_info_address,
+            media_port=sip.sdp_media_port,
+            mime_type=sip.sdp_mime_type,
+        ).model_dump_json()
+
+        self._message_service.publish(
+            payload_participants,
+            exchange_name="PARTICIPANTS",
+            exchange_type=ExchangeType.DIRECT,
+            routing_key="participation",
+        )
+
+        # store in buffer for RTP processing
+        fields = {
+            "user": user,
+            "ip_address": sip.sdp_connection_info_address,
+            "media_port": sip.sdp_media_port,
+            "mime_type": sip.sdp_mime_type,
+        }
+        self._store_in_buffer(sip.call_id, **fields)
 
     def _store_in_buffer(self, call_id: str, **fields):
         """
@@ -348,7 +355,7 @@ class PacketProcessor(threading.Thread):
                 key = (p.ip_address, p.media_port, p.server_ip, p.server_port)
                 self._call_map[key] = (call_id, p.user)
 
-    def remove_from_buffer(self, call_id: str):
+    def _remove_from_buffer(self, call_id: str):
         """
         Remove the call from the buffers
         :param call_id: id from the call
@@ -383,7 +390,7 @@ class PacketProcessor(threading.Thread):
 
         return True
 
-    def check_dup_packet(self, sip, sip_packet):
+    def _check_dup_packet(self, sip, sip_packet):
         """
         To avoid duplicate processing of packets, we cache the packets in a cache.
         Sometimes the package is duplicated in the network.
