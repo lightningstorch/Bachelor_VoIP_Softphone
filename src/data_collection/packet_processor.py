@@ -155,31 +155,6 @@ class PacketProcessor(threading.Thread):
 
         self._publish_and_store_participant(sip, sip.from_user)
 
-        # payload_participants = Participant(
-        #     type=EventType.PARTICIPANTS,
-        #     call_id=sip.call_id,
-        #     user=sip.from_user,
-        #     ip_address=sip.sdp_connection_info_address,
-        #     media_port=sip.sdp_media_port,
-        #     mime_type=sip.sdp_mime_type,
-        # ).model_dump_json()
-        #
-        # self._message_service.publish(
-        #     payload_participants,
-        #     exchange_name="PARTICIPANTS",
-        #     exchange_type=ExchangeType.DIRECT,
-        #     routing_key="participation",
-        # )
-        #
-        # # store in buffer for RTP processing
-        # fields = {
-        #     "user": sip.from_user,
-        #     "ip_address": sip.sdp_connection_info_address,
-        #     "media_port": sip.sdp_media_port,
-        #     "mime_type": sip.sdp_mime_type,
-        # }
-        # self._store_in_buffer(sip.call_id, **fields)
-
     def _sip_incoming_200_invite(self, sip):
         # call setup is confirmed
         #print(f"{sip.status_code}: {sip.status_line} INVITE")
@@ -193,31 +168,6 @@ class PacketProcessor(threading.Thread):
         )
 
         self._publish_and_store_participant(sip, sip.to_user)
-
-        # payload_invite = Participant(
-        #     type=EventType.PARTICIPANTS,
-        #     call_id=sip.call_id,
-        #     user=sip.to_user,
-        #     ip_address=sip.sdp_connection_info_address,
-        #     media_port=sip.sdp_media_port,
-        #     mime_type=sip.sdp_mime_type,
-        # ).model_dump_json()
-        #
-        # self._message_service.publish(
-        #     payload_invite,
-        #     exchange_name="PARTICIPANTS",
-        #     exchange_type=ExchangeType.DIRECT,
-        #     routing_key="participation",
-        # )
-        #
-        # # store in buffer for RTP processing
-        # fields = {
-        #     "user": sip.to_user,
-        #     "ip_address": sip.sdp_connection_info_address,
-        #     "media_port": sip.sdp_media_port,
-        #     "mime_type": sip.sdp_mime_type,
-        # }
-        # self._store_in_buffer(sip.call_id, **fields)
 
     def _sip_incoming_ack(self, sip, sip_packet):
         print(sip.method)
