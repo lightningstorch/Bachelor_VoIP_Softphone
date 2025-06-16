@@ -23,9 +23,26 @@ if _config['captured_file']['path'] == 'relative':
 else:
     captured_file_path = _config['captured_file']['file_path']
 
-
-# RabbitMQ Message Service
+# ===========================================
+#           RabbitMQ Message Service
+# ===========================================
 rabbitmq_host = _config['rabbitmq']['host']
 rabbitmq_port = int(_config['rabbitmq']['port'])
 rabbitmq_user = _config['rabbitmq']['user']
 rabbitmq_password = _config['rabbitmq']['password']
+
+# ===========================================
+#               Audio processing
+# ===========================================
+audio_sample_rate = int(_config['audio_processing']['sample_rate'])
+audio_min_speech_duration = float(_config['audio_processing']['min_speech_duration'])
+audio_gap_threshold = float(_config['audio_processing']['gap_threshold'])
+audio_allowed_gaps = float(_config['audio_processing']['allowed_gaps'])
+
+# vad
+vad_mode = int(_config['audio_processing']['vad_mode'])
+
+# bandpass filter settings
+bandpass_min_frequency = float(_config['audio_processing']['bandpass_min_frequency'])
+bandpass_max_frequency = float(_config['audio_processing']['bandpass_max_frequency'])
+bandpass_order = int(_config['audio_processing']['bandpass_order'])

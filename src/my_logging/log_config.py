@@ -63,3 +63,18 @@ if not aggregator_logger.handlers:
     # Important: Deactivate propagation so that these logs do not also end up in app.log
     aggregator_logger.propagate = False
 
+# -------------------------------------
+# Configuration of the Call_Context-Loggers
+# -------------------------------------
+call_context_logger = logging.getLogger('call_context')
+call_context_logger.setLevel(logging.DEBUG)
+
+if not call_context_logger.handlers:
+    call_context_file_handler = logging.FileHandler(os.path.join(LOGS_DIR, 'call_context.log'))
+    call_context_file_handler.setLevel(logging.DEBUG)
+    call_context_file_handler.setFormatter(logging_format)
+
+    call_context_logger.addHandler(call_context_file_handler)
+    # Important: Deactivate propagation so that these logs do not also end up in app.log
+    call_context_logger.propagate = False
+

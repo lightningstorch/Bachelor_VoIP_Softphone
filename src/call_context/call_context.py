@@ -51,7 +51,7 @@ class CallContext:
             self._queues[ssrc].put(packet)
             #print(f"packet is inserted {packet.rtp.payload.binary_value}")
         else:
-            app_logger.warning(f"SSRC {ssrc} not found in call context {self.call_id}.")
+            app_logger.warning(f"SSRC '{ssrc}' not found in call context '{self.call_id}'.")
 
 
 
@@ -74,13 +74,12 @@ class CallContext:
                     #print(f"BUFFER ------------- reached {self._buffers[ssrc].size()}")
 
                     # process the data
-                    # speech_intervals = self._analysers[ssrc].analyze_audio(packets)
-                    #
-                    # # 3) Gib nur dann etwas aus, wenn result nicht leer ist
-                    # if speech_intervals:
-                    #     print(f"Speech intervals for SSRC {ssrc}: {speech_intervals}")
-                    #     self.intervals[ssrc].extend(speech_intervals)
-                    # #print(f"Speech intervals for SSRC {ssrc}: {speech_intervals}")
+                    speech_intervals = self._analysers[ssrc].analyze_audio(packets)
+
+                    if speech_intervals:
+                        print(f"Speech intervals for SSRC '{ssrc}': {speech_intervals}")
+                        self.intervals[ssrc].extend(speech_intervals)
+                    #print(f"Speech intervals for SSRC {ssrc}: {speech_intervals}")
 
                     # # store the intervals for overlapping speech detection
                     # for (start, end) in speech_intervals:
@@ -111,13 +110,13 @@ class CallContext:
             if buffer_items:
                 speech_intervals = self._analysers[ssrc].analyze_audio(buffer_items)
                 if speech_intervals:
-                    print(f"[FLUSH] Speech intervals for SSRC {ssrc}: {speech_intervals}")
+                    print(f"[FLUSH] Speech intervals for SSRC '{ssrc}': {speech_intervals}")
                     self.intervals[ssrc].extend(speech_intervals)
 
         for ssrc, analyser in self._analysers.items():
             last_interval = analyser.close()
             if last_interval is not None:
-                print(f"[FLUSH] Final speech interval for SSRC {ssrc}: {last_interval}")
+                print(f"[FLUSH] Final speech interval for SSRC '{ssrc}': {last_interval}")
                 self.intervals[ssrc].extend(last_interval)
 
 

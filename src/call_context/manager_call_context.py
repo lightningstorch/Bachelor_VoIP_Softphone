@@ -34,7 +34,7 @@ class ManagerCallContext:
             with self.lock:
                 return self.all_contexts[call_id]
         else:
-            app_logger.debug(f"Call ID {call_id} not found.")
+            app_logger.debug(f"Call ID '{call_id}' not found.")
             return None
 
     def create_or_insert_call_context(self, call_id: str, ssrc: str):
@@ -49,14 +49,12 @@ class ManagerCallContext:
             if call_context is None:
                 call_context = CallContext(call_id, self.message_service)
                 self.all_contexts[call_id] = call_context
-                app_logger.debug(f"Call context created for Call ID {call_id} with SSRC {ssrc}.")
+                app_logger.debug(f"Call context created for Call ID '{call_id}' with SSRC '{ssrc}'.")
 
             if ssrc not in self._known_ssrc[call_id]:
                 call_context.insert_ssrc(ssrc)
                 self._known_ssrc[call_id].add(ssrc)
-                app_logger.debug(f"SSRC {ssrc} added to existing Call ID context {call_id}.")
-            else:
-                app_logger.debug(f"SSRC {ssrc} already exists in call ID context {call_id}.")
+                app_logger.debug(f"SSRC '{ssrc}' added to existing Call ID context '{call_id}'.")
 
         return call_context
 
@@ -68,11 +66,8 @@ class ManagerCallContext:
         :param call_id: The call ID to enqueue the packet for
         :param packet: The packet to enqueue
         """
-        #print(f"Enqueue packet for Call ID {call_id} with SSRC {ssrc}.")
         call_context = self.create_or_insert_call_context(call_id, ssrc)
-
         call_context.enqueue_packet(ssrc, packet)
-        app_logger.debug(f"Packet enqueued for Call ID {call_id} with SSRC {ssrc}.")
 
     def end_call(self, call_id: str):
         """
@@ -81,7 +76,7 @@ class ManagerCallContext:
         if call_id in self.all_contexts:
             with self.lock:
                 if call_id not in self.all_contexts:
-                    app_logger.debug(f"Call ID {call_id} not found.")
+                    app_logger.debug(f"Call ID '{call_id}' not found.")
 
                 call_context = self.all_contexts.pop(call_id)
                 call_context.stop()
@@ -94,4 +89,4 @@ class ManagerCallContext:
             for call_id, call_context in self.all_contexts.items():
                 call_context.stop()
                 del self.all_contexts[call_id]
-                app_logger.debug(f"Call ID {call_id} stopped and removed.")
+                app_logger.debug(f"Call ID '{call_id}' stopped and removed.")
