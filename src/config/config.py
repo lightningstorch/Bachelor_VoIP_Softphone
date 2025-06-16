@@ -42,6 +42,10 @@ audio_allowed_gaps = float(_config['audio_processing']['allowed_gaps'])
 # vad
 vad_mode = int(_config['audio_processing']['vad_mode'])
 
+# noise reduction
+noise_percentile = float(_config['audio_processing']['noise_percentile'])
+noise_multiplier = float(_config['audio_processing']['noise_multiplier'])
+
 # bandpass filter settings
 bandpass_min_frequency = float(_config['audio_processing']['bandpass_min_frequency'])
 bandpass_max_frequency = float(_config['audio_processing']['bandpass_max_frequency'])

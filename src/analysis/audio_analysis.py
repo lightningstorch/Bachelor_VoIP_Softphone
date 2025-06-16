@@ -5,10 +5,15 @@ import webrtcvad
 from typing import Any
 from scipy.signal import butter, sosfilt
 from config.config import bandpass_min_frequency, bandpass_max_frequency, bandpass_order, audio_min_speech_duration, \
-    audio_gap_threshold, audio_allowed_gaps, audio_sample_rate, vad_mode
+    audio_gap_threshold, audio_allowed_gaps, audio_sample_rate, vad_mode, noise_multiplier, noise_percentile
 from my_logging.log_config import call_context_logger
 
-# AudioAnalysis - Version 1.0
+# Semantic Versioning for AudioAnalysis (MAJOR.MINOR.PATCH):
+#   MAJOR version when you make incompatible API changes or large new features
+#   MINOR version when you add functionality in a backwards-compatible manner or make medium enhancements
+#   PATCH version when you make backwards-compatible bug fixes or minor tweaks
+__version__ = "1.1.0"
+
 class AudioAnalysis:
     """
     Processes Opus audio packets, detects speech segments, and applies bandpass filtering.
@@ -82,11 +87,19 @@ class AudioAnalysis:
         self.bandpass_max_f = bandpass_max_frequency
         self.bandpass_order = bandpass_order
 
+        # noise reduction parameters
+        self.noise_multiplier = noise_multiplier
+        self.noise_percentile = noise_percentile
+
+
     def analyze_audio(self, packet):
 
-        packets_sorted = sorted(packet, key=lambda p: p.rtp.seq)
+        packets_sorted = sorted(packet, key=lambda p: p.sniff_timestamp)
 
         for pkt in packets_sorted:
+
+            if len(pkt.rtp.payload.binary_value) < 12:
+                continue
 
             rtp_timestamp = int(pkt.rtp.timestamp)
 
@@ -222,8 +235,8 @@ class AudioAnalysis:
 
             self._rms_values_initial.append(block_rms)
             if len(self._rms_values_initial) >= self._collect_rms_for:
-                noise_floor = float(np.percentile(self._rms_values_initial, 10))
-                self._noise_threshold = noise_floor * 2
+                noise_floor = float(np.percentile(self._rms_values_initial, self.noise_percentile))
+                self._noise_threshold = noise_floor * self.noise_multiplier
                 break
 
     def close(self) -> tuple[float, float] | None:
