@@ -12,7 +12,7 @@ from my_logging.log_config import call_context_logger
 #   MAJOR version when you make incompatible API changes or large new features
 #   MINOR version when you add functionality in a backwards-compatible manner or make medium enhancements
 #   PATCH version when you make backwards-compatible bug fixes or minor tweaks
-__version__ = "1.1.0"
+__version__ = "1.1.1"
 
 class AudioAnalysis:
     """
@@ -92,7 +92,7 @@ class AudioAnalysis:
         self.noise_percentile = noise_percentile
 
 
-    def analyze_audio(self, packet):
+    def analyze_audio(self, packet) -> list[tuple[float, float]]:
 
         packets_sorted = sorted(packet, key=lambda p: p.sniff_timestamp)
 
@@ -239,7 +239,7 @@ class AudioAnalysis:
                 self._noise_threshold = noise_floor * self.noise_multiplier
                 break
 
-    def close(self) -> tuple[float, float] | None:
+    def close(self) -> list[tuple[float, float]] | None:
         """Return the final speech segment if one is in progress"""
 
         if self._current_speech_start is not None and self._last_section_end_ts is not None:
@@ -249,7 +249,7 @@ class AudioAnalysis:
             if (final_interval[1] - final_interval[0]) >= self._min_speech_duration:
                 self.all_intervals.append(final_interval)
                 self._last_returned_end_time = final_interval[1]
-                return final_interval
+                return [final_interval]
 
         return None
 

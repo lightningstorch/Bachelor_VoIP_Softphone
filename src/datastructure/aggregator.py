@@ -3,8 +3,8 @@ import json
 from datetime import datetime
 
 from aio_pika import IncomingMessage, ExchangeType
-from datastructure.database.database import store_call_start, store_call_end, store_ssrc
-from datastructure.dataclass_models import CallInfo, ParticipantInfo
+from datastructure.database.database import store_call_start, store_call_end, store_ssrc, store_talking_sections
+from datastructure.dataclass_models import CallInfo, ParticipantInfo, TalkingInterval
 from typing import Dict
 from my_logging.log_config import app_logger, aggregator_logger
 
@@ -21,6 +21,7 @@ class Aggregator:
         self.message_service.subscribe(self.aggregator_call_end, "CALL_END", ExchangeType.DIRECT, "aggregator_call_end_queue", "end_call").result(timeout=5)
         self.message_service.subscribe(self.aggregator_call_decline, "CALL_DECLINE", ExchangeType.DIRECT, "aggregator_call_decline_queue", "call_decline").result(timeout=5)
         self.message_service.subscribe(self.aggregator_ssrc, "SSRC", ExchangeType.DIRECT, "aggregator_ssrc_queue", "ssrc").result(timeout=5)
+        self.message_service.subscribe(self.aggregator_talking_section, "TALKING_SECTION", ExchangeType.DIRECT, "aggregator_talking_section_queue", "talking_section").result(timeout=5)
 
         app_logger.debug("Aggregator: Starting Aggregator")
 
@@ -132,4 +133,22 @@ class Aggregator:
 
         store_ssrc(body.get("call_id"), body.get("ssrc"), body.get("user"))
         aggregator_logger.debug(f"SSRC '{body.get('ssrc')}' has been stored in db")
+
+    @staticmethod
+    def aggregator_talking_section(message: IncomingMessage):
+        # confirm receipt of the message
+        asyncio.create_task(message.ack())
+        body = json.loads(message.body.decode())
+
+        store_talking_sections(
+            TalkingInterval(
+                type=body.get("type"),
+                call_id=body.get("call_id"),
+                ssrc=body.get("ssrc"),
+                start=body.get("start"),
+                end=body.get("end")
+            )
+        )
+
+        aggregator_logger.debug(f"Talking section for call ID '{body.get('call_id')}' and SSRC '{body.get('ssrc')}' has been stored in db")
 

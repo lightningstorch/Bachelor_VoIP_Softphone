@@ -6,7 +6,7 @@ from aio_pika import ExchangeType
 from analysis.audio_analysis import AudioAnalysis
 from analysis.buffer import Buffer
 from datastructure.async_message_service import AsyncMessageService
-from datastructure.dataclass_models import TalkingInterval
+from datastructure.dataclass_models import TalkingInterval, EventType
 from my_logging.log_config import app_logger
 
 
@@ -27,8 +27,6 @@ class CallContext:
         self.thread.start()
 
         self.intervals = {}
-
-
 
     def insert_ssrc(self, ssrc: str):
         """
@@ -53,8 +51,6 @@ class CallContext:
         else:
             app_logger.warning(f"SSRC '{ssrc}' not found in call context '{self.call_id}'.")
 
-
-
     def run(self):
         while not self._stop_event.is_set():
             for ssrc, queue in list(self._queues.items()):
@@ -71,60 +67,36 @@ class CallContext:
                     # get the data from the buffer
                     packets = self._buffers[ssrc].get()
 
-                    #print(f"BUFFER ------------- reached {self._buffers[ssrc].size()}")
-
                     # process the data
                     speech_intervals = self._analysers[ssrc].analyze_audio(packets)
 
                     if speech_intervals:
                         print(f"Speech intervals for SSRC '{ssrc}': {speech_intervals}")
                         self.intervals[ssrc].extend(speech_intervals)
-                    #print(f"Speech intervals for SSRC {ssrc}: {speech_intervals}")
 
-                    # # store the intervals for overlapping speech detection
-                    # for (start, end) in speech_intervals:
-                    #     if ssrc not in self._store_intervals:
-                    #         self._store_intervals[ssrc] = []
-                    #     self._store_intervals[ssrc].append((start, end))
-                    #     print(f"Speech interval for SSRC {ssrc}: {start} - {end}")
-                    #
-                    #     # publish the results
-                    #     payload = TalkingInterval(
-                    #         type= "speech",
-                    #         call_id= self.call_id,
-                    #         ssrc= ssrc,
-                    #         start= start,
-                    #         end= end
-                    #     ).model_dump_json()
-                    #
-                    #     self.message_service.publish(
-                    #         payload,
-                    #         exchange_name="TalkingInterval",
-                    #         exchange_type=ExchangeType.DIRECT,
-                    #         routing_key="TalkingInterval"
-                    #     )
-
-    def _flush_buffers(self):
-        for ssrc, queue in list(self._queues.items()):
-            buffer_items = self._buffers[ssrc].flush()
-            if buffer_items:
-                speech_intervals = self._analysers[ssrc].analyze_audio(buffer_items)
-                if speech_intervals:
-                    print(f"[FLUSH] Speech intervals for SSRC '{ssrc}': {speech_intervals}")
-                    self.intervals[ssrc].extend(speech_intervals)
-
-        for ssrc, analyser in self._analysers.items():
-            last_interval = analyser.close()
-            if last_interval is not None:
-                print(f"[FLUSH] Final speech interval for SSRC '{ssrc}': {last_interval}")
-                self.intervals[ssrc].extend(last_interval)
-
+                    self._send_intervals(ssrc, speech_intervals)
 
 
     def calculate_overlapping_intervals(self):
         pass
 
 
+    def _flush_buffers(self):
+        """
+        Flush the buffers for all SSRCs and process the remaining audio data.
+        This method is called when the call context is stopped to ensure that any remaining audio data is processed.
+        It analyzes the buffered audio data and sends the resulting speech intervals.
+        """
+        for ssrc, analyser in self._analysers.items():
+            buffer_items = self._buffers[ssrc].flush()
+            if buffer_items:
+                speech_intervals = analyser.analyze_audio(buffer_items)
+                if speech_intervals:
+                    self._handle_intervals(ssrc, speech_intervals)
+
+            last_interval = analyser.close()
+            if last_interval:
+                self._handle_intervals(ssrc, last_interval, label="Final speech interval")
 
     def stop(self):
         """
@@ -135,3 +107,37 @@ class CallContext:
         self.calculate_overlapping_intervals()
         self.thread.join()
 
+
+    def _handle_intervals(self, ssrc: str, speech_intervals: list, label= "Speech intervals"):
+        self._send_intervals(ssrc, speech_intervals,)
+        print(f"[FLUSH] {label} for SSRC '{ssrc}': {speech_intervals}")
+        self.intervals[ssrc].extend(speech_intervals)
+
+    def _send_intervals(self, ssrc, speech_intervals: list, type_interval= "speech"):
+        """
+        Send the speech intervals to the message service.
+        :param ssrc: The SSRC of the audio stream.
+        :param speech_intervals: The list of speech intervals to send.
+        :param type_interval: The type of interval, e.g., "speech" or "overlap".
+        """
+
+        for (start, end) in speech_intervals:
+            if ssrc not in self._store_intervals:
+                self._store_intervals[ssrc] = []
+            self._store_intervals[ssrc].append((start, end))
+
+            # publish the results
+            payload = TalkingInterval(
+                type= type_interval,
+                call_id=self.call_id,
+                ssrc=ssrc,
+                start=start,
+                end=end
+            ).model_dump_json()
+
+            self.message_service.publish(
+                payload,
+                exchange_name="TALKING_SECTION",
+                exchange_type=ExchangeType.DIRECT,
+                routing_key="talking_section"
+            )

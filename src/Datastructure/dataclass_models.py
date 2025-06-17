@@ -74,10 +74,9 @@ class ServerInfo(BaseModel):
 
 
 class TalkingInterval(BaseModel):
-    type: EventType
-    call_id: str
-    ssrc: str
     type: str # "speech" or "silence"
+    call_id: str
+    ssrc: str | None
     start: float
     end: float
 
