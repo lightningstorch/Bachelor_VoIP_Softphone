@@ -26,7 +26,7 @@ class CallContext:
         self.thread = threading.Thread(target=self.run, name=f"CallContextThread-{self.call_id}", daemon=True)
         self.thread.start()
 
-        self.intervals = {}
+        self.intervals: dict[str, list] = {}
 
     def insert_ssrc(self, ssrc: str):
         """
@@ -74,12 +74,29 @@ class CallContext:
                         print(f"Speech intervals for SSRC '{ssrc}': {speech_intervals}")
                         self.intervals[ssrc].extend(speech_intervals)
 
-                    self._send_intervals(ssrc, speech_intervals)
-
+                    self._send_intervals(speech_intervals, ssrc)
 
     def calculate_overlapping_intervals(self):
-        pass
+        """
+        Calculate overlapping intervals between the SSRCs in the call context.
+        This method compares the speech intervals of the first two SSRCs and finds overlaps.
+        If there are more than two SSRCs, it only considers the first two for overlap calculation.
+        It sends the overlapping intervals to the message service.
+        """
 
+        lists = list(self.intervals.items())
+        (ssrc1, intervals1), (ssrc2, intervals2) = lists[0], lists[1]
+
+        overlaps = []
+        for start1, end1 in intervals1:
+            for start2, end2 in intervals2:
+                overlap_start = max(start1, start2)
+                overlap_end = min(end1, end2)
+
+                if overlap_start < overlap_end:
+                    overlaps.append((overlap_start, overlap_end))
+
+        self._send_intervals(speech_intervals=overlaps, type_interval="overlap")
 
     def _flush_buffers(self):
         """
@@ -107,13 +124,16 @@ class CallContext:
         self.calculate_overlapping_intervals()
         self.thread.join()
 
+#================================================
+#           Helper methods
+#================================================
 
     def _handle_intervals(self, ssrc: str, speech_intervals: list, label= "Speech intervals"):
-        self._send_intervals(ssrc, speech_intervals,)
+        self._send_intervals(speech_intervals, ssrc)
         print(f"[FLUSH] {label} for SSRC '{ssrc}': {speech_intervals}")
         self.intervals[ssrc].extend(speech_intervals)
 
-    def _send_intervals(self, ssrc, speech_intervals: list, type_interval= "speech"):
+    def _send_intervals(self, speech_intervals: list, ssrc = None, type_interval= "speech"):
         """
         Send the speech intervals to the message service.
         :param ssrc: The SSRC of the audio stream.
