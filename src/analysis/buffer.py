@@ -51,7 +51,6 @@ class Buffer:
         with self.lock:
             return len(self.buffer)
 
-
     def clear(self):
         """
         Clear the buffer.
