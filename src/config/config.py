@@ -7,7 +7,12 @@ provides important parameters.
 """
 
 _config = configparser.ConfigParser()
-_config.read(Path(__file__).parent / 'config.ini')
+
+test_cfg = Path.cwd() / 'config.ini'
+if test_cfg.exists():
+    _config.read(test_cfg)
+else:
+    _config.read(Path(__file__).parent / 'config.ini')
 
 server_ip = _config['network']['server_ip']
 interface = _config['network']['interface']
@@ -15,13 +20,12 @@ interface = _config['network']['interface']
 database_type = _config['database']['type']
 database_connection = _config['database']['connection_string']
 
-if _config['captured_file']['path'] == 'relative':
-    captured_file_path_relativ = _config['captured_file']['file_path']
-
-    project_root = Path(__file__).resolve().parents[2]
-    captured_file_path = (project_root / captured_file_path_relativ).resolve()
+_cf = _config['captured_file']
+fp = Path(_cf['file_path'])
+if _cf['path'] == 'relative' and not fp.is_absolute():
+    captured_file_path = (Path.cwd() / fp)
 else:
-    captured_file_path = _config['captured_file']['file_path']
+    captured_file_path = fp
 
 # ===========================================
 #           RabbitMQ Message Service

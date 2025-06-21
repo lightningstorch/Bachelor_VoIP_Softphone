@@ -5,7 +5,7 @@ from my_logging.log_config import app_logger
 
 def validate_file(file_path) -> bool:
     # check if the file is reachable
-    if not os.path.isfile(file_path) and not os.access(file_path, os.R_OK):
+    if not os.path.isfile(file_path) or not os.access(file_path, os.R_OK):
         app_logger.error(f"File {file_path} does not exist or is not readable")
         return False
 
