@@ -61,15 +61,6 @@ def main():
         # shutdown the message_service
         message_service.close()
 
-def callback_init_call(message: IncomingMessage):
-    print("Callback function for INIT_CALL in the main")
-    print(message.body.decode('utf-8'))
-    asyncio.run_coroutine_threadsafe(
-        message.ack(),
-        get_message_service().loop
-    )
-    #capture_provider.set_context_ready()
-
 
 if __name__ == '__main__':
     main()

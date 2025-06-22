@@ -6,13 +6,20 @@ This module reads the configuration from the 'config.ini' file and
 provides important parameters.
 """
 
-_config = configparser.ConfigParser()
 
-test_cfg = Path.cwd() / 'config.ini'
-if test_cfg.exists():
-    _config.read(test_cfg)
+cfg_in_cwd = Path.cwd() / 'config.ini'
+if cfg_in_cwd.exists():
+    cfg_file = cfg_in_cwd
 else:
-    _config.read(Path(__file__).parent / 'config.ini')
+    cfg_file = Path(__file__).parent / 'config.ini'
+
+_config = configparser.ConfigParser()
+_config.read(cfg_file)
+
+if cfg_file == cfg_in_cwd:
+    base_dir = cfg_file.parent
+else:
+    base_dir = Path(__file__).resolve().parents[2]
 
 server_ip = _config['network']['server_ip']
 interface = _config['network']['interface']
@@ -22,10 +29,11 @@ database_connection = _config['database']['connection_string']
 
 _cf = _config['captured_file']
 fp = Path(_cf['file_path'])
-if _cf['path'] == 'relative' and not fp.is_absolute():
-    captured_file_path = (Path.cwd() / fp)
+if _cf.get('path', '').lower() == 'relative' and not fp.is_absolute():
+    captured_file_path = (base_dir / fp).resolve()
 else:
-    captured_file_path = fp
+    captured_file_path = fp.resolve()
+
 
 # ===========================================
 #           RabbitMQ Message Service
