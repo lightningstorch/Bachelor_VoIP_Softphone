@@ -1,7 +1,10 @@
 import importlib
+import re
 import shutil
 import sys
 from pathlib import Path
+from site import abs_paths
+
 import pytest
 
 def test_full_config_loading():
@@ -40,19 +43,37 @@ def test_full_config_loading():
 def test_config_various(tmp_path, monkeypatch, ini_fixture, expected_order, expected_mode):
     # load the fixture from the fixtures directory to the temporary path
     src = Path(__file__).parent/"fixtures"/ini_fixture
-    shutil.copy(src, tmp_path/"config.ini")
+    ini_text = src.read_text()
 
-    import src.config.config as config
-    importlib.reload(config)
-
-    # create the relative path if needed
-    if expected_mode == 'relative':
+    abs_file = None
+    if expected_mode == 'absolute':
+        # create a file in the temp_path
+        abs_file = tmp_path / "test" / "file.wav"
+        abs_file.parent.mkdir(parents=True, exist_ok=True)
+        abs_file.write_bytes(b"")
+        # change the ini path to the absolute path
+        ini_text = re.sub(
+            r"file_path\s*=\s*.+",
+            lambda m: f"file_path = {abs_file}",
+            ini_text
+        )
+    elif expected_mode == 'relative':
         (tmp_path/"data").mkdir()
         (tmp_path/"data"/"file.wav").write_bytes(b"")
 
+    # write the adapted config to the temporary path
+    ini_dest = tmp_path / "config.ini"
+    ini_dest.write_text(ini_text)
+
+    monkeypatch.chdir(tmp_path)
+    sys.modules.pop("src.config.config", None)
+    import src.config.config as config
+    importlib.reload(config)
+
     assert config.bandpass_order == expected_order
+
     if expected_mode == 'absolute':
-        expected_path = Path("C:/foo/bar.wav").resolve()
+        expected_path = abs_file.resolve()
     else:
         expected_path = (tmp_path/"data"/"file.wav").resolve()
 

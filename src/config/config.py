@@ -62,3 +62,12 @@ noise_multiplier = float(_config['audio_processing']['noise_multiplier'])
 bandpass_min_frequency = float(_config['audio_processing']['bandpass_min_frequency'])
 bandpass_max_frequency = float(_config['audio_processing']['bandpass_max_frequency'])
 bandpass_order = int(_config['audio_processing']['bandpass_order'])
+
+# ===========================================
+#           Logging Configuration
+# ===========================================
+app_log_level = _config['logging']['app_log_level']
+message_service_log_level = _config['logging']['message_service_log_level']
+aggregator_log_level = _config['logging']['aggregator_log_level']
+call_context_log_level = _config['logging']['call_context_log_level']
+
