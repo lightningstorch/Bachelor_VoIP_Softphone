@@ -5,6 +5,7 @@ from aio_pika import ExchangeType
 
 from analysis.audio_analysis import AudioAnalysis
 from analysis.buffer import Buffer
+from config.config import default_audio_sample_rate
 from datastructure.async_message_service import AsyncMessageService
 from datastructure.dataclass_models import TalkingInterval, EventType
 from my_logging.log_config import app_logger
@@ -15,6 +16,7 @@ class CallContext:
     def __init__(self, call_id: str, message_service: AsyncMessageService):
         self.call_id = call_id
         self.message_service = message_service
+        self.sample_rate = default_audio_sample_rate # Default sample rate for audio analysis
 
         self._queues : dict[str, Queue] = {}
         self._analysers : dict[str, AudioAnalysis] = {}
@@ -36,8 +38,11 @@ class CallContext:
         if ssrc not in self._queues:
             self._queues[ssrc] = Queue()
             self._buffers[ssrc] = Buffer(ssrc, self._buffer_size)
-            self._analysers[ssrc] = AudioAnalysis(ssrc)
+            self._analysers[ssrc] = AudioAnalysis(ssrc, self.sample_rate)
             self.intervals[ssrc] = []
+
+    def set_sample_rate(self, sample_rate: int):
+        self.sample_rate = sample_rate
 
     def enqueue_packet(self, ssrc: str, packet):
         """

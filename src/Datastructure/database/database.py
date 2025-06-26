@@ -5,7 +5,7 @@ from sqlalchemy.orm import sessionmaker
 from config.config import database_type, database_connection
 from datastructure.database.models import Base, Calls, Participants, TalkingSections
 from datastructure.dataclass_models import CallInfo, TalkingInterval, EventType
-from my_logging.log_config import app_logger
+from my_logging.log_config import database_logger
 
 engine = create_engine(
     database_connection,
@@ -29,7 +29,7 @@ def store_call_start(call_id: str, call_info: CallInfo):
     session = Session()
 
     if session.get(Calls, call_id):
-        app_logger.debug(f"Call ID '{call_id}' already exists in db")
+        database_logger.debug(f"Call ID '{call_id}' already exists in db")
         print(f"Call ID '{call_id}' already exists in db")
         session.close()
         return
@@ -57,10 +57,10 @@ def store_call_start(call_id: str, call_info: CallInfo):
 
         session.commit()
         print(f"Call ID '{call_id}' has been commited to db")
-        app_logger.debug(f"Call ID '{call_id}' has been stored in db")
+        database_logger.debug(f"Call ID '{call_id}' has been stored in db")
     except Exception as e:
         session.rollback()
-        app_logger.error(f"Error with rollback while storing call id '{call_id}' in db: {e}")
+        database_logger.error(f"Error with rollback while storing call id '{call_id}' in db: {e}")
         print(f"Error with rollback while storing call id '{call_id}' in db: {e}")
 
     finally:
@@ -80,13 +80,13 @@ def store_call_end(call_id: str, call_info: CallInfo):
         try:
             call.end_time = call_info.end_time
             session.commit()
-            app_logger.debug(f"Call ID '{call_id}' has been updated in db")
+            database_logger.debug(f"Call ID '{call_id}' has been updated in db")
             print(f"Call ID '{call_id}' has been updated in db")
         except Exception as e:
-            app_logger.error(f"Error with rollback while updating the end time of call id '{call_id}' in db: {e}")
+            database_logger.error(f"Error with rollback while updating the end time of call id '{call_id}' in db: {e}")
             session.rollback()
     else:
-        app_logger.warning(f"Call ID '{call_id}' not found in db")
+        database_logger.warning(f"Call ID '{call_id}' not found in db")
         print(f"Call ID '{call_id}' not found in db")
 
     session.close()
@@ -106,13 +106,13 @@ def store_ssrc(call_id: str, ssrc: str, user: str):
         try:
             participant.ssrc = str(ssrc)
             session.commit()
-            app_logger.debug(f"SSRC '{ssrc}' has been updated for call ID '{call_id}' in db")
+            database_logger.debug(f"SSRC '{ssrc}' has been updated for call ID '{call_id}' in db")
             print(f"SSRC '{ssrc}' has been updated for call ID '{call_id}' in db")
         except Exception as e:
             session.rollback()
-            app_logger.error(f"Error with rollback while updating SSRC '{ssrc}' for call ID '{call_id}' in db: {e}")
+            database_logger.error(f"Error with rollback while updating SSRC '{ssrc}' for call ID '{call_id}' in db: {e}")
     else:
-        app_logger.warning(f"Call ID '{call_id}' not found in db")
+        database_logger.warning(f"Call ID '{call_id}' not found in db")
         print(f"Call ID '{call_id}' not found in db")
 
     session.close()
@@ -140,17 +140,17 @@ def store_talking_sections(talking_interval: TalkingInterval):
         session.add(new_section)
 
         session.commit()
-        app_logger.debug(f"Talking sections for call ID '{call_id}' and SSRC '{ssrc}' have been stored in db")
+        database_logger.debug(f"Talking sections for call ID '{call_id}' and SSRC '{ssrc}' have been stored in db")
 
     except IntegrityError:
         session.rollback()
-        app_logger.warning(
+        database_logger.warning(
             f"Talking section '{talking_interval.start} - {talking_interval.end}' "
             f"for call ID '{call_id}' and SSRC '{ssrc}' already exists in db"
         )
     except Exception as e:
         session.rollback()
-        app_logger.error(f"Error while storing talking sections for call ID '{call_id}' and SSRC '{ssrc}': {e}")
+        database_logger.error(f"Error while storing talking sections for call ID '{call_id}' and SSRC '{ssrc}': {e}")
 
     finally:
         session.close()

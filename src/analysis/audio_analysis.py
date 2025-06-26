@@ -5,14 +5,14 @@ import webrtcvad
 from typing import Any
 from scipy.signal import butter, sosfilt
 from config.config import bandpass_min_frequency, bandpass_max_frequency, bandpass_order, audio_min_speech_duration, \
-    audio_gap_threshold, audio_allowed_gaps, audio_sample_rate, vad_mode, noise_multiplier, noise_percentile
+    audio_gap_threshold, audio_allowed_gaps, vad_mode, noise_multiplier, noise_percentile, default_audio_sample_rate
 from my_logging.log_config import call_context_logger
 
 # Semantic Versioning for AudioAnalysis (MAJOR.MINOR.PATCH):
 #   MAJOR version when you make incompatible API changes or large new features
 #   MINOR version when you add functionality in a backwards-compatible manner or make medium enhancements
 #   PATCH version when you make backwards-compatible bug fixes or minor tweaks
-__version__ = "1.1.1"
+__version__ = "1.1.2"
 
 class AudioAnalysis:
     """
@@ -32,11 +32,11 @@ class AudioAnalysis:
         av, webrtcvad, numpy, scipy
     """
 
-    def __init__(self, ssrc: str):
+    def __init__(self, ssrc: str, sample_rate: int):
         self.ssrc = ssrc
 
-        # Audio parameters
-        self.sample_rate = audio_sample_rate
+        # Audio parameters (from client)
+        self.sample_rate = sample_rate
 
         # Initialize the decoder for Opus audio
         self.codec: Any = av.CodecContext.create("opus", "r")
@@ -90,7 +90,6 @@ class AudioAnalysis:
         # noise reduction parameters
         self.noise_multiplier = noise_multiplier
         self.noise_percentile = noise_percentile
-
 
     def analyze_audio(self, packet) -> list[tuple[float, float]]:
 

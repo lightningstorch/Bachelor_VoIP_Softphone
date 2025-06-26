@@ -157,7 +157,6 @@ class PacketProcessor(threading.Thread):
 
     def _sip_incoming_200_invite(self, sip):
         # call setup is confirmed
-        #print(f"{sip.status_code}: {sip.status_line} INVITE")
 
         app_logger.debug(
             f"INVITE accepted: {sip.status_line},"
@@ -165,6 +164,11 @@ class PacketProcessor(threading.Thread):
             f" Media Port: {sip.sdp_media_port},"
             f" MIME Type: {sip.sdp_mime_type},"
             f" user: {sip.to_user}"
+        )
+
+        self.manager_call_context.create_or_insert_call_context(
+            call_id=sip.call_id,
+            sample_rate=int(sip.sdp_sample_rate)
         )
 
         self._publish_and_store_participant(sip, sip.to_user)

@@ -37,10 +37,11 @@ class ManagerCallContext:
             app_logger.debug(f"Call ID '{call_id}' not found.")
             return None
 
-    def create_or_insert_call_context(self, call_id: str, ssrc: str):
+    def create_or_insert_call_context(self, call_id: str, ssrc: str | None = None, sample_rate: int | None = None):
         """
         Create a new call context or insert an SSRC into an existing one.
 
+        :param sample_rate: The sample rate for the call, for the audio analysis
         :param call_id: The call ID to create the context for
         :param ssrc: the RTP Stream SSRC to insert in call context
         """
@@ -49,9 +50,13 @@ class ManagerCallContext:
             if call_context is None:
                 call_context = CallContext(call_id, self.message_service)
                 self.all_contexts[call_id] = call_context
-                app_logger.debug(f"Call context created for Call ID '{call_id}' with SSRC '{ssrc}'.")
+                app_logger.debug(f"Call context created for Call ID '{call_id}'.")
 
-            if ssrc not in self._known_ssrc[call_id]:
+            if sample_rate is not None:
+                call_context.set_sample_rate(sample_rate)
+                app_logger.debug(f"Sample rate set to '{sample_rate}' by Call ID '{call_id}'.")
+
+            if ssrc is not None and ssrc not in self._known_ssrc[call_id]:
                 call_context.insert_ssrc(ssrc)
                 self._known_ssrc[call_id].add(ssrc)
                 app_logger.debug(f"SSRC '{ssrc}' added to existing Call ID context '{call_id}'.")
@@ -66,7 +71,7 @@ class ManagerCallContext:
         :param call_id: The call ID to enqueue the packet for
         :param packet: The packet to enqueue
         """
-        call_context = self.create_or_insert_call_context(call_id, ssrc)
+        call_context = self.create_or_insert_call_context(call_id=call_id, ssrc=ssrc)
         call_context.enqueue_packet(ssrc, packet)
 
     def end_call(self, call_id: str):

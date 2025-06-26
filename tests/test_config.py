@@ -24,7 +24,7 @@ def test_full_config_loading():
     assert config.rabbitmq_user == 'guest'
     assert config.rabbitmq_password == 'guest'
 
-    assert config.audio_sample_rate == 16000
+    assert config.default_audio_sample_rate == 16000
     assert config.audio_min_speech_duration == 0.5
     assert config.audio_gap_threshold == 0.1
     assert config.audio_allowed_gaps == 0.05

@@ -1,7 +1,8 @@
 import logging
 import os
 
-from config.config import app_log_level, message_service_log_level, aggregator_log_level, call_context_log_level
+from config.config import app_log_level, message_service_log_level, aggregator_log_level, call_context_log_level, \
+    database_log_level
 
 """
 This module configures the loggers for the application.
@@ -85,4 +86,20 @@ if not call_context_logger.handlers:
     call_context_logger.addHandler(call_context_file_handler)
     # Important: Deactivate propagation so that these logs do not also end up in app.log
     call_context_logger.propagate = False
+
+
+# -------------------------------------
+# Configuration of the Database-Loggers
+# -------------------------------------
+database_logger = logging.getLogger('database')
+database_logger.setLevel(_get_log_level(database_log_level))
+
+if not database_logger.handlers:
+    database_file_handler = logging.FileHandler(os.path.join(LOGS_DIR, 'database.log'))
+    database_file_handler.setLevel(_get_log_level(database_log_level))
+    database_file_handler.setFormatter(logging_format)
+
+    database_logger.addHandler(database_file_handler)
+    # Important: Deactivate propagation so that these logs do not also end up in app.log
+    database_logger.propagate = False
 

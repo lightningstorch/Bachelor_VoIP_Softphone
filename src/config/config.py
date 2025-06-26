@@ -46,7 +46,7 @@ rabbitmq_password = _config['rabbitmq']['password']
 # ===========================================
 #               Audio processing
 # ===========================================
-audio_sample_rate = int(_config['audio_processing']['sample_rate'])
+default_audio_sample_rate = int(_config['audio_processing']['default_sample_rate'])
 audio_min_speech_duration = float(_config['audio_processing']['min_speech_duration'])
 audio_gap_threshold = float(_config['audio_processing']['gap_threshold'])
 audio_allowed_gaps = float(_config['audio_processing']['allowed_gaps'])
@@ -70,4 +70,5 @@ app_log_level = _config['logging']['app_log_level']
 message_service_log_level = _config['logging']['message_service_log_level']
 aggregator_log_level = _config['logging']['aggregator_log_level']
 call_context_log_level = _config['logging']['call_context_log_level']
+database_log_level = _config['logging']['database_log_level']
 
