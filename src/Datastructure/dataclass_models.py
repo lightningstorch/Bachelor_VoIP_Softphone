@@ -36,6 +36,7 @@ class ParticipantInfo:
 
 @dataclass
 class CallInfo:
+    caller: str = None
     start_time: datetime = None
     end_time: datetime = None
     participants: List[ParticipantInfo] = field(default_factory=list)
@@ -48,8 +49,10 @@ class CallInfo:
 class Call(BaseModel):
     type: EventType
     call_id: str
+    caller: str | None = None
     start_time: datetime | None = None
     end_time: datetime | None = None
+
 
 class Participant(BaseModel):
     type: EventType

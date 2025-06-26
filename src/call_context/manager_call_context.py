@@ -1,5 +1,6 @@
 import threading
 from collections import defaultdict
+from queue import Queue
 from typing import DefaultDict
 
 from call_context.call_context import CallContext
@@ -15,13 +16,16 @@ class ManagerCallContext:
     It uses a thread-safe dictionary to store the call contexts and a lock to ensure thread safety.
     """
 
-    def __init__(self, message_service: AsyncMessageService):
+    def __init__(self, message_service: AsyncMessageService, cleanup_queue: Queue) -> None:
         # to store all the call contexts with SSRC under the call_id
         self.all_contexts: dict[str, CallContext] = {}
         # [call_id] -> [list of ssrc]
         self._known_ssrc: DefaultDict[str, set[str]] = defaultdict(set)
         self.lock = threading.Lock()
         self.message_service = message_service
+
+        # queue for cleanup tasks
+        self.cleanup_queue = cleanup_queue
 
     def get_call_context(self, call_id: str):
         """
@@ -76,7 +80,7 @@ class ManagerCallContext:
 
     def end_call(self, call_id: str):
         """
-        End a call by call_id
+        End a call by call_id and put the call_id into the cleanup queue
         """
         if call_id in self.all_contexts:
             with self.lock:
@@ -85,6 +89,8 @@ class ManagerCallContext:
 
                 call_context = self.all_contexts.pop(call_id)
                 call_context.stop()
+
+                self.cleanup_queue.put(call_id)
 
     def shutdown_all_calls(self):
         """

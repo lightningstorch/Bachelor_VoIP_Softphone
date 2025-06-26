@@ -3,7 +3,7 @@ import threading
 
 from collections import deque, defaultdict
 from dataclasses import asdict
-from queue import Empty
+from queue import Empty, Queue
 from typing import Tuple
 
 from aio_pika import ExchangeType
@@ -15,7 +15,7 @@ from datastructure.dataclass_models import Call, Participant, EventType, ServerI
 from my_logging.log_config import app_logger
 
 class PacketProcessor(threading.Thread):
-    def __init__(self, message_service, queue, manager_call_context: ManagerCallContext):
+    def __init__(self, message_service, queue: Queue, manager_call_context: ManagerCallContext, cleanup_queue: Queue):
         super().__init__()
         self.daemon = True
         self._stop_event = threading.Event()
@@ -33,10 +33,12 @@ class PacketProcessor(threading.Thread):
 
         # Call context buffer to store the information for rtp processing
         self._ip_port_buffer: dict[str, list[ParticipantInfo]] = defaultdict(list)
-        # Tuple[call_id, user]
+        # Tuple[ip, port, ip, port], Tuple[call_id, user]
         self._call_map: dict[Tuple[str, int, str, int], Tuple[str, str]] = {}
-        # Tuple[ssrc, call_id, user]
+        # Tuple[ssrc, Tuple[call_id, user]]
         self._ssrc_to_call_id: dict[str, Tuple[str, str]] = {}
+        # Queue for cleanup of old call contexts
+        self.cleanup_queue = cleanup_queue
 
     def set_context_ready(self):
         self._context_ready.set()
@@ -50,17 +52,24 @@ class PacketProcessor(threading.Thread):
 
         while not self._stop_event.is_set():
 
+            # cleanup old call contexts
+            try:
+                cleanup_id = self.cleanup_queue.get_nowait()
+            except Empty:
+                pass
+            else:
+                app_logger.debug(f"Cleanup call context for call_id: {cleanup_id}")
+                self._clear_call_resources(cleanup_id)
+
             try:
                 packet = self.queue.get(timeout=1)
             except Empty:
                 continue
 
             if hasattr(packet, 'sip'):
-                #print("SIP packet detected")
                 self._sip_process(packet)
 
             elif hasattr(packet, 'rtp') and packet.ip.dst == server_ip:
-                #print(f"RTP packet detected SSRC: {packet.rtp.ssrc} - Seq: {packet.rtp.seq}")
                 self._rtp_process(packet)
 
     def _sip_process(self, sip_packet):
@@ -144,7 +153,11 @@ class PacketProcessor(threading.Thread):
             f" user: {sip.from_user}"
         )
 
-        payload_call = Call(type=EventType.NEW_CALL, call_id=sip.call_id).model_dump_json()
+        payload_call = Call(
+            type=EventType.NEW_CALL,
+            caller=sip.from_user,
+            call_id=sip.call_id
+        ).model_dump_json()
 
         self._message_service.publish(
             payload_call,
@@ -309,7 +322,7 @@ class PacketProcessor(threading.Thread):
                 key = (p.ip_address, p.media_port, p.server_ip, p.server_port)
                 self._call_map[key] = (call_id, p.user)
 
-    def _remove_from_buffer(self, call_id: str):
+    def _clear_call_resources(self, call_id: str):
         """
         Remove the call from the buffers
         :param call_id: id from the call
@@ -323,6 +336,8 @@ class PacketProcessor(threading.Thread):
             for key, (call, user) in list(self._ssrc_to_call_id.items()):
                 if call == call_id:
                     self._ssrc_to_call_id.pop(key)
+
+        app_logger.debug(f"Cleared resources for call_id: {call_id}")
 
     def _call_ready(self, call_id: str) -> bool:
         """

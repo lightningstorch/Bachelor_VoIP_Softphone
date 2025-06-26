@@ -8,7 +8,7 @@ from analysis.buffer import Buffer
 from config.config import default_audio_sample_rate
 from datastructure.async_message_service import AsyncMessageService
 from datastructure.dataclass_models import TalkingInterval, EventType
-from my_logging.log_config import app_logger
+from my_logging.log_config import app_logger, call_context_logger
 
 
 class CallContext:
@@ -77,6 +77,7 @@ class CallContext:
 
                     if speech_intervals:
                         print(f"Speech intervals for SSRC '{ssrc}': {speech_intervals}")
+                        call_context_logger.debug(f"Speech intervals for SSRC '{ssrc}': {speech_intervals}")
                         self.intervals[ssrc].extend(speech_intervals)
 
                     self._send_intervals(speech_intervals, ssrc)
@@ -136,6 +137,7 @@ class CallContext:
     def _handle_intervals(self, ssrc: str, speech_intervals: list, label= "Speech intervals"):
         self._send_intervals(speech_intervals, ssrc)
         print(f"[FLUSH] {label} for SSRC '{ssrc}': {speech_intervals}")
+        call_context_logger.debug(f"[FLUSH] {label} for SSRC '{ssrc}': {speech_intervals}")
         self.intervals[ssrc].extend(speech_intervals)
 
     def _send_intervals(self, speech_intervals: list, ssrc = None, type_interval= "speech"):

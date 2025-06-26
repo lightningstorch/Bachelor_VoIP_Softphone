@@ -7,6 +7,7 @@ Base = declarative_base()
 class Calls(Base):
     __tablename__ = 'calls'
     id = Column(String, primary_key=True)
+    caller = Column(String, nullable=False)
     start_time = Column(DateTime, nullable=False)
     end_time = Column(DateTime, nullable=True)
 

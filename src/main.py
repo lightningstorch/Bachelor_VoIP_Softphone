@@ -18,18 +18,18 @@ from datastructure.database.database import init_db
 def main():
     app_logger.info("System is starting...")
 
-    # initialise Components
-    message_service = AsyncMessageService()
-    aggregator = Aggregator(message_service)
-    manager_call_context = ManagerCallContext(message_service)
-
-
-    # init the Database
-    init_db()
-
     # init the dicts and queues
     # the queue for capture_procider and packet_processor
     queue_threads = Queue()
+    cleanup_queue = Queue()
+
+    # initialise Components
+    message_service = AsyncMessageService()
+    aggregator = Aggregator(message_service)
+    manager_call_context = ManagerCallContext(message_service, cleanup_queue)
+
+    # init the Database
+    init_db()
 
     life_capture = False
 
@@ -38,7 +38,7 @@ def main():
     else:
         capture_provider = CaptureProvider(message_service, "file", os.path.abspath(captured_file_path), queue_threads)
 
-    packet_processor_thread = PacketProcessor(message_service, queue_threads, manager_call_context)
+    packet_processor_thread = PacketProcessor(message_service, queue_threads, manager_call_context, cleanup_queue)
 
     capture_provider.start()
     packet_processor_thread.start()

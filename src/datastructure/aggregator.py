@@ -25,14 +25,13 @@ class Aggregator:
 
         app_logger.debug("Aggregator: Starting Aggregator")
 
-
     def aggregator_new_call(self, message: IncomingMessage):
         # confirm receipt of the message
         asyncio.create_task(message.ack())
         body = json.loads(message.body.decode())
 
         # store in the buffer
-        self._call_buffer[body.get("call_id")] = CallInfo()
+        self._call_buffer[body.get("call_id")] = CallInfo(caller=body.get("caller"))
 
         print(f"Aggregator: New call is temporarily saved: '{body.get('call_id')}'")
         aggregator_logger.debug(f"Aggregator: New call is temporarily saved: '{body.get('call_id')}'")

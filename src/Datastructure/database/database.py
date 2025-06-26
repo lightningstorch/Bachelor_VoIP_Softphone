@@ -37,6 +37,7 @@ def store_call_start(call_id: str, call_info: CallInfo):
     try:
         new_call = Calls(
             id=call_id,
+            caller=call_info.caller,
             start_time=call_info.start_time,
             end_time=call_info.end_time
         )
