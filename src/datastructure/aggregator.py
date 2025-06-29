@@ -81,8 +81,6 @@ class Aggregator:
         if body.get("call_id") not in self._call_buffer:
             return
 
-        app_logger.debug(f"Publish information to initialising for call id '{body.get("call_id")}'")
-
         self._call_buffer[body.get("call_id")].start_time = datetime.fromisoformat(body.get("start_time"))
         print(f"Aggregator: Buffer: {self._call_buffer[body.get("call_id")]}")
 

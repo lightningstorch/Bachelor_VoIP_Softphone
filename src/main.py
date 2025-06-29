@@ -1,5 +1,10 @@
+import argparse
 import asyncio
 import os
+import threading
+import time
+
+import uvicorn
 from queue import Queue
 
 from aio_pika import IncomingMessage
@@ -14,6 +19,30 @@ from my_logging.log_config import app_logger
 from datastructure.database.database import init_db
 
 
+def parse_args():
+    parser = argparse.ArgumentParser(
+        description="VoIP Call Capture and Processing System for live or file-based capture.",
+    )
+    parser.add_argument(
+        "--mode",
+        choices=["live", "file"],
+        default="live",
+        help="Run default in live mode, or use file mode with a specified file path.",
+    )
+    parser.add_argument(
+        "--file",
+        type=str,
+        default=captured_file_path,
+        help="Path to the capture file when running in file mode.",
+    )
+    return parser.parse_args()
+
+def start_api():
+    """
+    Starts the FastAPI application in a separate thread.
+    """
+    uvicorn.run("api.api:app", host="0.0.0.0", port=8000, log_level="warning")
+
 
 def main():
     app_logger.info("System is starting...")
@@ -25,17 +54,26 @@ def main():
 
     # initialise Components
     message_service = AsyncMessageService()
-    aggregator = Aggregator(message_service)
+    Aggregator(message_service)
     manager_call_context = ManagerCallContext(message_service, cleanup_queue)
 
     # init the Database
     init_db()
 
+    # thread for API
+    threading.Thread(target=start_api, daemon=True).start()
+    time.sleep(2)  # wait for the API to start
+
+
+    args = parse_args()
+
     life_capture = False
 
-    if life_capture:
+    if args.mode == "live":
+        print("Running in live mode")
         capture_provider = CaptureProvider(message_service, "live", interface, queue_threads)
-    else:
+    elif args.mode == "file":
+        print(f"Running in file mode with file: {args.file}")
         capture_provider = CaptureProvider(message_service, "file", os.path.abspath(captured_file_path), queue_threads)
 
     packet_processor_thread = PacketProcessor(message_service, queue_threads, manager_call_context, cleanup_queue)
