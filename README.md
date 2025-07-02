@@ -51,6 +51,8 @@ These must be installed separately in the respective compatible version.
 - webrtcvad = 2.0.10
 - numpy = 2.2.6
 - scipy = 1.15.3
+- uvicorn = 0.35.0
+- fastapi = 0.115.14
 
 Licenses of the Library's: [Link](THIRD_PARTY_LICENSES.md)
 
@@ -84,6 +86,8 @@ pip install scapy
 pip install av
 pip install webrtcvad
 pip install numpy
+pip install uvicorn
+pip install fastapi
 ```
 
 ### Install the RabbitMQ server
