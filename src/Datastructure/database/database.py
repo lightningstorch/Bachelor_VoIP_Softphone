@@ -1,10 +1,11 @@
 
 from sqlalchemy import create_engine
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import sessionmaker, joinedload
 from config.config import database_type, database_connection
 from datastructure.database.models import Base, Calls, Participants, TalkingSections
-from datastructure.dataclass_models import CallInfo, TalkingInterval, EventType
+from datastructure.dataclass_models import CallInfo, TalkingInterval, EventType, CallHistoryLite, CallDetail, \
+    Participant
 from my_logging.log_config import database_logger
 
 engine = create_engine(
@@ -153,5 +154,89 @@ def store_talking_sections(talking_interval: TalkingInterval):
         session.rollback()
         database_logger.error(f"Error while storing talking sections for call ID '{call_id}' and SSRC '{ssrc}': {e}")
 
+    finally:
+        session.close()
+
+
+#--------------------------------------------
+# Database operations for API
+#--------------------------------------------
+
+def get_call_history_lite():
+    """
+    Retrieve a list of call history entries with minimal details.
+    :return: List of CallHistoryLite objects.
+    """
+    session = Session()
+    try:
+        calls = session.query(Calls).order_by(Calls.start_time.desc()).all()
+
+        call_history_lite = [
+            CallHistoryLite(
+                call_id=str(call.id),
+                caller=str(call.caller),
+                start_time=call.start_time.isoformat() if call.start_time else None
+            )for call in calls
+        ]
+        return call_history_lite
+    except Exception as e:
+        database_logger.error(f"Error retrieving call history: {e}")
+        return []
+    finally:
+        session.close()
+
+def get_full_call_data(call_id: str):
+    """
+    Retrieve detailed information about a specific call by its ID.
+    :param call_id: The unique identifier for the call.
+    :return: All details of the call including participants and talking intervals.
+    """
+
+    session = Session()
+    try:
+        call = (session.
+                 query(Calls)
+                 .options(
+                     joinedload(Calls.participants)
+                     .joinedload(Participants.talking_sections),
+                     joinedload(Calls.talking_sections)
+                     )
+                 .filter(Calls.id == call_id)
+                 .one_or_none()
+                 )
+
+        result = CallDetail(
+            call_id=str(call.id),
+            caller=str(call.caller) if call.caller else None,
+            start_time=call.start_time.isoformat() if call.start_time else None,
+            end_time=call.end_time.isoformat() if call.end_time else None,
+            participants=[
+                Participant(
+                    type=EventType.API,
+                    call_id=str(call.id),
+                    user=str(participant.user),
+                    ssrc=participant.ssrc,
+                    ip_address=str(participant.ip_address),
+                    media_port=participant.media_port,
+                    mime_type=participant.mime_type,
+                    server_ip=participant.server_ip,
+                    server_port=participant.server_port
+                ) for participant in call.participants
+            ],
+            talking_interval=[
+                TalkingInterval(
+                    type=section.type,
+                    call_id=str(call.id),
+                    ssrc=(section.participant.ssrc if section.participant else None),
+                    start=section.section_start,
+                    end=section.section_end
+                ) for section in call.talking_sections
+            ]
+        )
+
+        return result
+    except Exception as e:
+        database_logger.error(f"Error retrieving call data for call ID '{call_id}': {e}")
+        return []
     finally:
         session.close()

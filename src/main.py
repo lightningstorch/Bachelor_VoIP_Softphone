@@ -26,7 +26,7 @@ def parse_args():
     parser.add_argument(
         "--mode",
         choices=["live", "file"],
-        default="live",
+        default="file",
         help="Run default in live mode, or use file mode with a specified file path.",
     )
     parser.add_argument(
@@ -66,8 +66,6 @@ def main():
 
 
     args = parse_args()
-
-    life_capture = False
 
     if args.mode == "live":
         print("Running in live mode")

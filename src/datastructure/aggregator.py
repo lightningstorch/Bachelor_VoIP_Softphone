@@ -48,13 +48,13 @@ class Aggregator:
         fields = {}
         if "ip_address" in body:
             fields["ip_address"] = body["ip_address"]
-        if "media_port" in body:
+        if "media_port" in body and body["server_port"] is not None:
             fields["media_port"] = int(body["media_port"])
         if "mime_type" in body:
             fields["mime_type"] = body["mime_type"]
         if "server_ip" in body:
             fields["server_ip"] = body["server_ip"]
-        if "server_port" in body:
+        if "server_port" in body and body["server_port"] is not None:
             fields["server_port"] = int(body["server_port"])
 
         call_info = self._call_buffer[body.get("call_id")]

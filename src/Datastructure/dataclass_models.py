@@ -20,6 +20,7 @@ class EventType(Enum):
     CALL_DECLINE = "CALL_DECLINE"
     SERVER_INFO = "SERVER_INFO"
     TALKING_INTERVAL = "TALKING_INTERVAL"
+    API = "API"
 
 # -------------------------------------------------------------------
 # Dataclass for the aggregator to store information in the dictionary
@@ -58,9 +59,12 @@ class Participant(BaseModel):
     type: EventType
     call_id: str
     user: str
+    ssrc: str | None = None
     ip_address: str
     media_port: int
     mime_type: str
+    server_ip: str | None = None
+    server_port: int | None = None
 
 class Info(BaseModel):
     type: EventType
@@ -83,6 +87,23 @@ class TalkingInterval(BaseModel):
     start: float
     end: float
 
+
+# ----------------------
+# Dataclass for the API
+# ----------------------
+
+class CallHistoryLite(BaseModel):
+    call_id: str
+    caller: str
+    start_time: str
+
+class CallDetail(BaseModel):
+    call_id: str
+    caller: str
+    start_time: str
+    end_time: str
+    participants: List[Participant]
+    talking_interval: List[TalkingInterval]
 
 
 
