@@ -1,7 +1,7 @@
 import asyncio
 import json
-from datetime import datetime
 
+from datetime import datetime
 from aio_pika import IncomingMessage, ExchangeType
 from datastructure.database.database import store_call_start, store_call_end, store_ssrc, store_talking_sections
 from datastructure.dataclass_models import CallInfo, ParticipantInfo, TalkingInterval
@@ -16,7 +16,7 @@ class Aggregator:
 
         self.message_service.subscribe(self.aggregator_new_call, "NEW_CALL", ExchangeType.DIRECT, "aggregator_new_call_queue", "new_call").result(timeout=5)
         self.message_service.subscribe(self.aggregator_participation, "PARTICIPANTS", ExchangeType.DIRECT, "aggregator_participation_queue", "participation").result(timeout=5)
-        self.message_service.subscribe(self.aggregator_participation, "SERVER_INFO", ExchangeType.DIRECT, "aggregator_server_data_queue", "server_info").result(timeout=5)
+        self.message_service.subscribe(self.aggregator_server_info, "SERVER_INFO", ExchangeType.DIRECT, "aggregator_server_data_queue", "server_info").result(timeout=5)
         self.message_service.subscribe(self.aggregator_ack, "ACK", ExchangeType.DIRECT, "aggregator_ack_queue", "ack").result(timeout=5)
         self.message_service.subscribe(self.aggregator_call_end, "CALL_END", ExchangeType.DIRECT, "aggregator_call_end_queue", "end_call").result(timeout=5)
         self.message_service.subscribe(self.aggregator_call_decline, "CALL_DECLINE", ExchangeType.DIRECT, "aggregator_call_decline_queue", "call_decline").result(timeout=5)
@@ -26,6 +26,13 @@ class Aggregator:
         app_logger.debug("Aggregator: Starting Aggregator")
 
     def aggregator_new_call(self, message: IncomingMessage):
+        """
+        Handles the new call message from the message service.
+        This method is called when a new call message is received.
+        It decodes the message body, extracts the call ID and caller information,
+        and stores it in the call buffer.
+        :param message: The incoming message contains the call information.
+        """
         # confirm receipt of the message
         asyncio.create_task(message.ack())
         body = json.loads(message.body.decode())
@@ -37,6 +44,13 @@ class Aggregator:
         aggregator_logger.debug(f"Aggregator: New call is temporarily saved: '{body.get('call_id')}'")
 
     def aggregator_participation(self, message: IncomingMessage):
+        """
+        Handles the participation message from the message service.
+        This method is called when a participation message is received.
+        It decodes the message body, extracts the call ID, user information,
+        and other fields, and updates the participant's information in the call buffer.
+        :param message: The incoming message contains the participation information.
+        """
         # confirm receipt of the message
         asyncio.create_task(message.ack())
         body = json.loads(message.body.decode())
@@ -48,31 +62,46 @@ class Aggregator:
         fields = {}
         if "ip_address" in body:
             fields["ip_address"] = body["ip_address"]
-        if "media_port" in body and body["server_port"] is not None:
+        if "media_port" in body and body["media_port"] is not None:
             fields["media_port"] = int(body["media_port"])
         if "mime_type" in body:
             fields["mime_type"] = body["mime_type"]
-        if "server_ip" in body:
-            fields["server_ip"] = body["server_ip"]
-        if "server_port" in body and body["server_port"] is not None:
-            fields["server_port"] = int(body["server_port"])
 
-        call_info = self._call_buffer[body.get("call_id")]
-
-        participant = next((p for p in call_info.participants if p.user == body.get("user")), None)
-
-        if not participant:
-            # Update the server IP and port for the participant
-            participant = ParticipantInfo(user = body.get("user"))
-            call_info.participants.append(participant)
-            aggregator_logger.debug(f"Aggregator: New participant {body.get('user')} added to call_id {body.get('call_id')}")
+        participant = self.get_participant(body)
 
         for key, value in fields.items():
             setattr(participant, key, value)
 
         aggregator_logger.debug(f"Aggregator: Participant {body.get('user')} updated with all fields for call_id {body.get('call_id')}")
 
+    def aggregator_server_info(self, message: IncomingMessage):
+        """
+        Handles the server information message from the message service.
+        This method is called when a server information message is received.
+        It decodes the message body, extracts the call ID, server IP, and server port,
+        and updates the participant's server information in the call buffer.
+        :param message: The incoming message contains the server information.
+        """
+        asyncio.create_task(message.ack())
+        body = json.loads(message.body.decode())
+
+        if body.get('call_id') not in self._call_buffer:
+            aggregator_logger.warning(f"Aggregator: Call ID {body.get('call_id')} not found in buffer")
+            return
+
+        participant = self.get_participant(body)
+
+        participant.server_ip = body["server_ip"]
+        participant.server_port = int(body["server_port"]) if body["server_port"] is not None else None
+
     def aggregator_ack(self, message: IncomingMessage):
+        """
+        Handles the acknowledgment message from the message service.
+        This method is called when an acknowledgment message is received.
+        It decodes the message body, extracts the call ID and start time,
+        and updates the call buffer with the start time.
+        :param message: The incoming message contains the acknowledgment information.
+        """
         # confirm receipt of the message
         asyncio.create_task(message.ack())
         body = json.loads(message.body.decode())
@@ -92,6 +121,13 @@ class Aggregator:
         aggregator_logger.debug(f"Call ID '{body.get("call_id")}' has been stored in db")
 
     def aggregator_call_end(self, message: IncomingMessage):
+        """
+        Handles the call end message from the message service.
+        This method is called when a call end message is received.
+        It decodes the message body, extracts the call ID and end time,
+        updates the call buffer with the end time, and removes the call from the buffer.
+        :param message: The incoming message contains the call end information.
+        """
         # confirm receipt of the message
         asyncio.create_task(message.ack())
         body = json.loads(message.body.decode())
@@ -108,6 +144,12 @@ class Aggregator:
         print(f"Aggregator: Call ID '{body.get("call_id")}' has been finished and stored in db")
 
     def aggregator_call_decline(self, message: IncomingMessage):
+        """
+        Handles the call decline message from the message service.
+        This method is called when a call decline message is received.
+        It decodes the message body, extracts the call ID, and removes the call from the buffer.
+        :param message: The incoming message contains the call decline information.
+        """
         # confirm receipt of the message
         asyncio.create_task(message.ack())
         body = json.loads(message.body.decode())
@@ -119,6 +161,13 @@ class Aggregator:
             aggregator_logger.info(f"Call ID '{body.get("call_id")}' has been declined")
 
     def aggregator_ssrc(self, message: IncomingMessage):
+        """
+        Handles the SSRC message from the message service.
+        This method is called when an SSRC message is received.
+        It decodes the message body, extracts the call ID, SSRC, and user information,
+        and updates the participant's SSRC in the call buffer.
+        :param message: The incoming message contains the SSRC information.
+        """
         # confirm receipt of the message
         asyncio.create_task(message.ack())
         body = json.loads(message.body.decode())
@@ -133,6 +182,13 @@ class Aggregator:
 
     @staticmethod
     def aggregator_talking_section(message: IncomingMessage):
+        """
+        Handles the talking section message from the message service.
+        This method is called when a talking section message is received.
+        It decodes the message body, extracts the type, call ID, SSRC, start time, and end time,
+        and stores the talking section in the database.
+        :param message: The incoming message contains the talking section information.
+        """
         # confirm receipt of the message
         asyncio.create_task(message.ack())
         body = json.loads(message.body.decode())
@@ -149,3 +205,25 @@ class Aggregator:
 
         aggregator_logger.debug(f"Talking section for call ID '{body.get('call_id')}' and SSRC '{body.get('ssrc')}' has been stored in db")
 
+
+#===================================
+#         Helper Functions
+#===================================
+
+    def get_participant(self, body):
+        """
+        Retrieves or creates a participant in the call buffer based on the provided body.
+        :param body: The body of the message containing call ID and user information.
+        :return: ParticipantInfo object for the user in the call.
+        """
+        call_info = self._call_buffer[body.get("call_id")]
+
+        participant = next((p for p in call_info.participants if p.user == body.get("user")), None)
+
+        if not participant:
+            participant = ParticipantInfo(user=body.get("user"))
+            call_info.participants.append(participant)
+            aggregator_logger.debug(
+                f"Aggregator: New participant {body.get('user')} added to call_id {body.get('call_id')}")
+
+        return participant

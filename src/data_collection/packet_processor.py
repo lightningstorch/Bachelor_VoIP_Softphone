@@ -39,6 +39,8 @@ class PacketProcessor(threading.Thread):
         self._ssrc_to_call_id: dict[str, Tuple[str, str]] = {}
         # Queue for cleanup of old call contexts
         self.cleanup_queue = cleanup_queue
+        # Buffer for RTP packets
+        self._rtp_buffer: dict[tuple, list] = defaultdict(list)
 
     def set_context_ready(self):
         self._context_ready.set()
@@ -113,32 +115,23 @@ class PacketProcessor(threading.Thread):
                 self._outgoing_invite(sip, sip.from_user)
 
     def _rtp_process(self, rtp_packet):
-        rtp = rtp_packet.rtp
         # print(rtp.field_names)
 
         key = (rtp_packet.ip.src, rtp_packet.udp.srcport, rtp_packet.ip.dst, rtp_packet.udp.dstport)
 
+        if key not in self._call_map:
+            app_logger.debug(f"RTP-paket without mapping: {key} → buffer length = {len(self._rtp_buffer[key]) + 1}")
+            self._rtp_buffer[key].append(rtp_packet)
+            return
+
         call_id, user = self._call_map[key]
 
-        if rtp.ssrc not in self._ssrc_to_call_id:
-            # store the SSRC in the call_map
-            self._ssrc_to_call_id[rtp.ssrc] = (call_id, user)
+        buffered = self._rtp_buffer.pop(key, [])
+        for packet in buffered:
+            self._handle_rtp_packet(packet, call_id, user)
 
-            # send the ssrc to aggregator to store in database
-            self._message_service.publish(
-                json.dumps({
-                    "call_id": call_id,
-                    "ssrc": rtp.ssrc,
-                    "user": user
-                })
-                ,
-                exchange_name="SSRC",
-                exchange_type=ExchangeType.DIRECT,
-                routing_key="ssrc",
-            )
+        self._handle_rtp_packet(rtp_packet, call_id, user)
 
-        #binary_value = rtp.payload.binary_value
-        self.manager_call_context.enqueue_packet(call_id, rtp.ssrc, rtp_packet)
 
     # =========================================================
     #                   SIP Methods
@@ -243,6 +236,21 @@ class PacketProcessor(threading.Thread):
         )
 
     def _outgoing_invite(self, sip, user):
+        self._send_server_info(sip, user)
+
+        # store in buffer for RTP processing
+        fields = {
+            "user": user,
+            "server_ip": sip.sdp_connection_info_address,
+            "server_port": sip.sdp_media_port
+        }
+        self._store_in_buffer(sip.call_id, **fields)
+
+    # =========================================================
+    #                   Helper Methods
+    # =========================================================
+
+    def _send_server_info(self, sip, user):
         payload_server_data = ServerInfo(
             type=EventType.SERVER_INFO,
             call_id=sip.call_id,
@@ -258,17 +266,28 @@ class PacketProcessor(threading.Thread):
             routing_key="server_info",
         )
 
-        # store in buffer for RTP processing
-        fields = {
-            "user": user,
-            "server_ip": sip.sdp_connection_info_address,
-            "server_port": sip.sdp_media_port
-        }
-        self._store_in_buffer(sip.call_id, **fields)
+    def _handle_rtp_packet(self, rtp_packet, call_id, user):
+        rtp = rtp_packet.rtp
 
-    # =========================================================
-    #                   Helper Methods
-    # =========================================================
+        if rtp.ssrc not in self._ssrc_to_call_id:
+            # store the SSRC in the call_map
+            self._ssrc_to_call_id[rtp.ssrc] = (call_id, user)
+
+            # send the ssrc to aggregator to store in database
+            self._message_service.publish(
+                json.dumps({
+                    "call_id": call_id,
+                    "ssrc": rtp.ssrc,
+                    "user": user
+                })
+                ,
+                exchange_name="SSRC",
+                exchange_type=ExchangeType.DIRECT,
+                routing_key="ssrc",
+            )
+
+        #binary_value = rtp.payload.binary_value
+        self.manager_call_context.enqueue_packet(call_id, rtp.ssrc, rtp_packet)
 
     def _publish_and_store_participant(self, sip, user):
         payload_participants = Participant(

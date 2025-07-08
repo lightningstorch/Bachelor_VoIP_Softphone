@@ -1,16 +1,18 @@
+import os
 import threading
 import asyncio
 import pyshark
 
+from threading import Event, Thread
 from my_logging.log_config import app_logger
 from utils.validation import validate_file
 
 
-class CaptureProvider(threading.Thread):
-    def __init__(self, message_service, source_type, source_value, queue):
-        super().__init__()
+class CaptureProvider(Thread):
+    def __init__(self, source_type, source_value, queue):
+        super().__init__(daemon=True)
         self.daemon = True
-        self._stop_event = threading.Event()
+        self._stop_event = Event()
         self.capture = None
         self.loop = None
 
@@ -18,12 +20,9 @@ class CaptureProvider(threading.Thread):
         self.source_value = source_value
         self.queue = queue
 
-        self._message_service = message_service
-
-
     def run(self):
-        app_logger.debug("Starting packet monitor thread")
-        print("Starting packet monitor thread")
+        app_logger.debug(f"Starting capture provider thread in mode: {self.source_type}")
+        print(f"Starting capture provider thread in mode: {self.source_type}")
 
         #display_filter = f'(sip or rtp) and ip.dst == {server_ip}'
         display_filter = f'(sip or rtp)'
@@ -37,15 +36,20 @@ class CaptureProvider(threading.Thread):
         elif self.source_type == 'file':
             self.file_capture(display_filter)
 
-
     def live_capture(self, display_filter):
+        """
+        Starts a live capture on the specified source interface.
+        :param display_filter: The display filter to apply to the captured packets.
+        """
         app_logger.debug(f"Live capture on {self.source_value}")
 
         while not self._stop_event.is_set():
             try:
                 self.capture = pyshark.LiveCapture(interface=self.source_value, display_filter=display_filter)
-                for packet in self.capture.sniff_continuously():
-                    #process_packets(packet, self._message_service, self.context_ready)
+                for packet in self.capture.sniff(packet_count=10, timeout=1):
+                    if self._stop_event.is_set():
+                        break
+
                     self.queue.put(packet)
 
             except Exception as e:
@@ -55,6 +59,10 @@ class CaptureProvider(threading.Thread):
                 self.capture = None
 
     def file_capture(self, display_filter):
+        """
+        Starts a file capture on the specified file path.
+        :param display_filter: The display filter to apply to the captured packets.
+        """
         if not validate_file(self.source_value):
             app_logger.error(f"Terminate thread because of invalid file path or file extension {self.source_value}")
             return
@@ -64,7 +72,9 @@ class CaptureProvider(threading.Thread):
         try:
             self.capture = pyshark.FileCapture(input_file=self.source_value, display_filter=display_filter)
             for packet in self.capture:
-                #process_packets(packet, self._message_service, self.context_ready)
+                if self._stop_event.is_set():
+                    break
+
                 self.queue.put(packet)
 
         except Exception as e:
@@ -73,7 +83,13 @@ class CaptureProvider(threading.Thread):
             self.capture.close()
             self.capture = None
 
+            if os.path.exists(self.source_value) and os.path.isfile(self.source_value):
+                app_logger.debug(f"Removing file {self.source_value} after processing")
+                # Remove the file after processing
+                try:
+                    os.remove(self.source_value)
+                except Exception as e:
+                    app_logger.error(f"Error removing file {self.source_value}: {e}")
+
     def stop(self):
         self._stop_event.set()
-
-

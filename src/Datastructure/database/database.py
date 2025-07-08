@@ -1,9 +1,9 @@
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, Engine, event
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker, joinedload
 from config.config import database_type, database_connection
-from datastructure.database.models import Base, Calls, Participants, TalkingSections
+from datastructure.database.models import Base, Calls, Participants, TalkingSections, ProgramMode
 from datastructure.dataclass_models import CallInfo, TalkingInterval, EventType, CallHistoryLite, CallDetail, \
     Participant
 from my_logging.log_config import database_logger
@@ -18,6 +18,17 @@ Session = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 def init_db():
     Base.metadata.create_all(bind=engine)
 
+@event.listens_for(Engine, "connect")
+def _activate_sqlite_wal(dbapi_connection, connection_record):
+    """
+    Activate SQLite's Write-Ahead Logging (WAL) mode for better concurrency.
+    :param dbapi_connection: The database connection object.
+    :param connection_record: The connection record object.
+    """
+    if database_type == "sqlite":
+        curser = dbapi_connection.cursor()
+        curser.execute("PRAGMA journal_mode=WAL;")
+        curser.close()
 
 def store_call_start(call_id: str, call_info: CallInfo):
     """
@@ -120,6 +131,13 @@ def store_ssrc(call_id: str, ssrc: str, user: str):
     session.close()
 
 def store_talking_sections(talking_interval: TalkingInterval):
+    """
+    Store talking sections in the database.
+    This function checks if the talking section already exists in the database.
+    If it does, it logs a warning and returns without making any changes.
+    :param talking_interval: The TalkingInterval object contains details
+    about the talking section.
+    """
     session = Session()
 
     call_id = talking_interval.call_id
@@ -238,5 +256,42 @@ def get_full_call_data(call_id: str):
     except Exception as e:
         database_logger.error(f"Error retrieving call data for call ID '{call_id}': {e}")
         return []
+    finally:
+        session.close()
+
+def get_program_mode():
+    """
+    Retrieve the current program mode from the database.
+    :return: The current mode as a string.
+    """
+    session = Session()
+    try:
+        mode = session.query(ProgramMode).first()
+        if mode:
+            return mode.mode
+    except Exception as e:
+        database_logger.error(f"Error retrieving program mode: {e}")
+        return "live"
+    finally:
+        session.close()
+
+def set_program_mode(mode: str):
+    """
+    Set the current program mode in the database.
+    :param mode: The mode to set, either "live" or "file".
+    """
+    session = Session()
+    try:
+        existing_mode = session.query(ProgramMode).first()
+        if existing_mode:
+            existing_mode.mode = mode
+        else:
+            new_mode = ProgramMode(mode=mode)
+            session.add(new_mode)
+        session.commit()
+        database_logger.debug(f"Program mode set to '{mode}' in db")
+    except Exception as e:
+        session.rollback()
+        database_logger.error(f"Error setting program mode to '{mode}': {e}")
     finally:
         session.close()

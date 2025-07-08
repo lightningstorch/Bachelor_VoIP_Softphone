@@ -58,3 +58,8 @@ class TalkingSections(Base):
     participant = relationship("Participants", back_populates="talking_sections")
     call = relationship("Calls", back_populates="talking_sections")
 
+
+class ProgramMode(Base):
+    __tablename__ = 'program_mode'
+    id = Column(Integer, primary_key=True)
+    mode = Column(String, nullable=False)

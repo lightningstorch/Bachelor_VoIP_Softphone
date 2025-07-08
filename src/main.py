@@ -1,102 +1,141 @@
-import argparse
-import asyncio
-import os
 import threading
 import time
-
 import uvicorn
-from queue import Queue
 
-from aio_pika import IncomingMessage
+from queue import Queue, Empty
 
+from api.api import start_api
 from call_context.manager_call_context import ManagerCallContext
 from config.config import captured_file_path, interface
 from data_collection.capture_provider import CaptureProvider
 from data_collection.packet_processor import PacketProcessor
 from datastructure.aggregator import Aggregator
-from datastructure.async_message_service import AsyncMessageService, get_message_service
+from datastructure.async_message_service import AsyncMessageService
 from my_logging.log_config import app_logger
-from datastructure.database.database import init_db
+from datastructure.database.database import init_db, set_program_mode
+
+#==================================
+#         Global Variables
+#==================================
+
+# CaptureProvider and PacketProcessor instances
+capture_provider: CaptureProvider | None = None
+packet_processor: PacketProcessor | None = None
+# Queues for inter-thread communication
+queue_packets: Queue = Queue()
+cleanup_queue: Queue = Queue()
+# AsyncMessageService instance
+message_service = AsyncMessageService()
+# ManagerCallContext instance
+manager_call_context = ManagerCallContext(message_service, cleanup_queue)
 
 
-def parse_args():
-    parser = argparse.ArgumentParser(
-        description="VoIP Call Capture and Processing System for live or file-based capture.",
-    )
-    parser.add_argument(
-        "--mode",
-        choices=["live", "file"],
-        default="file",
-        help="Run default in live mode, or use file mode with a specified file path.",
-    )
-    parser.add_argument(
-        "--file",
-        type=str,
-        default=captured_file_path,
-        help="Path to the capture file when running in file mode.",
-    )
-    return parser.parse_args()
+#==================================
+#           Functions
+#==================================
 
-def start_api():
+def start_packet_processor():
     """
-    Starts the FastAPI application in a separate thread.
+    Starts the PacketProcessor if it is not already running.
+    If it is already running, it does nothing.
     """
-    uvicorn.run("api.api:app", host="0.0.0.0", port=8000, log_level="warning")
+    global packet_processor
+    if packet_processor is None or not packet_processor.is_alive():
+        packet_processor = PacketProcessor(
+            message_service,
+            queue_packets,
+            manager_call_context,
+            cleanup_queue
+        )
+        packet_processor.start()
 
+def start_capture_provider(mode: str, source: str):
+    """
+    Starts the CaptureProvider with the specified mode and source.
+    If a CaptureProvider is already running, it stops it before starting a new one.
+    :param mode: The mode of operation, either "live" or "file".
+    :param source: The source of the packets, either an interface or a file path.
+    """
+    global capture_provider
+    if capture_provider and capture_provider.is_alive():
+        capture_provider.stop()
+        capture_provider.join()
+        _emptying_queue(queue_packets)
+        print(f"Change Mode to {mode} and Source to {source}")
+
+    capture_provider = CaptureProvider(
+        mode,
+        source,
+        queue_packets
+    )
+    capture_provider.start()
+
+    start_packet_processor()
+
+def stop_program():
+    """
+    Stops the program gracefully by shutting down all threads and services.
+    """
+    app_logger.info("Stopping the program...")
+
+    if capture_provider:
+        capture_provider.stop()
+        capture_provider.join()
+
+    if packet_processor:
+        packet_processor.stop()
+        packet_processor.join()
+
+    # shutdown the CallContextManager
+    manager_call_context.shutdown_all_calls()
+
+    # shutdown the message_service
+    message_service.close()
+
+    app_logger.info("Program stopped successfully.")
+
+#==================================
+#         Main Functions
+#==================================
 
 def main():
+    """
+    Main function to start the VoIP UI Dashboard application.
+    Initializes the aggregator, database, API, and starts the capture provider.
+    """
     app_logger.info("System is starting...")
 
-    # init the dicts and queues
-    # the queue for capture_procider and packet_processor
-    queue_threads = Queue()
-    cleanup_queue = Queue()
-
-    # initialise Components
-    message_service = AsyncMessageService()
+    # Initialize the aggregator and Database
     Aggregator(message_service)
-    manager_call_context = ManagerCallContext(message_service, cleanup_queue)
-
-    # init the Database
     init_db()
 
-    # thread for API
+    # init the API
     threading.Thread(target=start_api, daemon=True).start()
     time.sleep(2)  # wait for the API to start
 
+    mode = "live"
+    source = interface if mode == "live" else captured_file_path
+    set_program_mode(mode)
+    start_capture_provider(mode, source)
 
-    args = parse_args()
+    threading.Event().wait()
 
-    if args.mode == "live":
-        print("Running in live mode")
-        capture_provider = CaptureProvider(message_service, "live", interface, queue_threads)
-    elif args.mode == "file":
-        print(f"Running in file mode with file: {args.file}")
-        capture_provider = CaptureProvider(message_service, "file", os.path.abspath(captured_file_path), queue_threads)
-
-    packet_processor_thread = PacketProcessor(message_service, queue_threads, manager_call_context, cleanup_queue)
-
-    capture_provider.start()
-    packet_processor_thread.start()
-
-    try:
-        capture_provider.join()
-    except KeyboardInterrupt:
-        print("KeyboardInterrupt")
-
-    finally:
-        # shutdown the threads
-        capture_provider.stop()
-        capture_provider.join()
-        packet_processor_thread.stop()
-        packet_processor_thread.join()
-
-        # shutdown the CallContextManager
-        manager_call_context.shutdown_all_calls()
-
-        # shutdown the message_service
-        message_service.close()
-
+    stop_program()
 
 if __name__ == '__main__':
     main()
+
+#==================================
+#         Helper functions
+#==================================
+
+def _emptying_queue(queue: Queue):
+    """
+    Empties the given queue by removing all items without blocking.
+    :param queue: The queue to be emptied.
+    """
+    while not queue.empty():
+        try:
+            queue.get_nowait()
+        except Empty:
+            break
