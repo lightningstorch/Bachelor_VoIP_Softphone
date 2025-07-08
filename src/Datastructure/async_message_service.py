@@ -58,6 +58,9 @@ class AsyncMessageService:
         self.is_closed = False
 
     def __new__(cls, *args, **kwargs):
+        """
+        Singleton pattern to ensure only one instance of AsyncMessageService exists.
+        """
         if cls._instance is None:
             with cls._lock:
                 if cls._instance is None:
@@ -69,6 +72,9 @@ class AsyncMessageService:
         self.loop.run_forever()
 
     async def _init_connection(self) -> AbstractRobustConnection:
+        """
+        Initialize the connection to RabbitMQ.
+        """
         for attempt in range(1, 4):
             try:
                 return await aio_pika.connect_robust(
@@ -91,6 +97,16 @@ class AsyncMessageService:
         )
 
     async def publish_async(self, message, exchange_name: str, exchange_type: ExchangeType, routing_key: str, publish_fail: int = 5):
+        """
+        Publish a message to an exchange with the specified routing key.
+        This method will create a channel if it does not exist, declare the exchange,
+        and publish the message to the exchange.
+        :param message: The message to be published.
+        :param exchange_name: The name of the exchange to publish to.
+        :param exchange_type: The type of the exchange (e.g., ExchangeType.DIRECT).
+        :param routing_key: The routing key to use for the message.
+        :param publish_fail: The number of attempts to retry publishing in case of failure.
+        """
         channel_exchange = self._publishers.get(exchange_name)
 
         if channel_exchange is None:
@@ -124,8 +140,6 @@ class AsyncMessageService:
             else:
                 message_service_logger.error(f"Could not publish message to exchange {exchange_name} after 5 attempts")
 
-
-
     def subscribe(self, callback: callable, exchange_name: str, exchange_type: str, queue_name: str, routing_key: str = ""):
         return asyncio.run_coroutine_threadsafe(
             self.subscribe_async(callback, exchange_name, exchange_type, queue_name, routing_key),
@@ -133,6 +147,17 @@ class AsyncMessageService:
         )
 
     async def subscribe_async(self, callback: callable, exchange_name: str, exchange_type: str, queue_name: str, routing_key: str, subscribe_fail: int = 3):
+        """
+        Subscribe to a queue with a callback function.
+        This method will create a channel, declare the exchange and queue, bind the queue to the exchange,
+        and start consuming messages with the provided callback function.
+        :param callback: The callback function to handle messages from the queue.
+        :param exchange_name: The name of the exchange to bind to.
+        :param exchange_type: The type of the exchange (e.g., ExchangeType.DIRECT).
+        :param queue_name: The name of the queue to subscribe to.
+        :param routing_key: The routing key to use for binding the queue to the exchange.
+        :param subscribe_fail: The number of attempts to retry subscribing in case of failure.
+        """
         try:
             channel = await self.connection.channel()
 
@@ -162,6 +187,11 @@ class AsyncMessageService:
         asyncio.run_coroutine_threadsafe(self.unsubscribe_async(queue_name), self.loop)
 
     async def unsubscribe_async(self, queue_name: str):
+        """
+        Unsubscribe from a queue and close the channel.
+        This method will cancel the consumer for the specified queue and close the channel.
+        :param queue_name: The name of the queue to unsubscribe from.
+        """
         entry = self._subscribers.get(queue_name)
         if not entry:
             return
@@ -184,6 +214,10 @@ class AsyncMessageService:
         asyncio.run_coroutine_threadsafe(self.close_async(), self.loop).result()
 
     async def close_async(self):
+        """
+        Close the message service and all channels.
+        This method will close all channels for consumers and publishers, and then close the connection.
+        """
         self.is_closed = True
         # close all channels for consumer
         for queue_name in list(self._subscribers):
