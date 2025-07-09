@@ -3,7 +3,7 @@ from sqlalchemy import create_engine, Engine, event
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker, joinedload
 from config.config import database_type, database_connection
-from datastructure.database.models import Base, Calls, Participants, TalkingSections, ProgramMode
+from datastructure.database.models import Base, Calls, Participants, TalkingSections, ProgramMode, UiUser
 from datastructure.dataclass_models import CallInfo, TalkingInterval, EventType, CallHistoryLite, CallDetail, \
     Participant
 from my_logging.log_config import database_logger
@@ -293,5 +293,64 @@ def set_program_mode(mode: str):
     except Exception as e:
         session.rollback()
         database_logger.error(f"Error setting program mode to '{mode}': {e}")
+    finally:
+        session.close()
+
+def get_user(username: str):
+    """
+    Retrieve a participant by username.
+    :param username: The username to search for.
+    :return: The participant object if found, otherwise None.
+    """
+    session = Session()
+    try:
+        user = session.query(UiUser).filter_by(username=username).one_or_none()
+        return user
+    except Exception as e:
+        database_logger.error(f"Error retrieving user '{username}': {e}")
+        return None
+    finally:
+        session.close()
+
+def set_user(username: str, password: str):
+    """
+    Set a user in the database.
+    :param username: The username to set.
+    :param password: The password for the user.
+    """
+    session = Session()
+    try:
+        existing_user = session.query(UiUser).filter_by(username=username).one_or_none()
+        if existing_user:
+            return None
+        else:
+            new_user = UiUser(username=username, password=password)
+            session.add(new_user)
+        session.commit()
+        database_logger.debug(f"User '{username}' has been set in db")
+    except Exception as e:
+        session.rollback()
+        database_logger.error(f"Error setting user '{username}': {e}")
+    finally:
+        session.close()
+
+def change_password(username: str, new_password: str):
+    """
+    Change the password for a user in the database.
+    :param username: The username for which to change the password.
+    :param new_password: The new password to set.
+    """
+    session = Session()
+    try:
+        existing_user = session.query(UiUser).filter_by(username=username).one_or_none()
+        if existing_user:
+            existing_user.password = new_password
+            session.commit()
+            database_logger.debug(f"Password for user '{username}' has been changed in db")
+        else:
+            database_logger.warning(f"User '{username}' not found in db")
+    except Exception as e:
+        session.rollback()
+        database_logger.error(f"Error changing password for user '{username}': {e}")
     finally:
         session.close()

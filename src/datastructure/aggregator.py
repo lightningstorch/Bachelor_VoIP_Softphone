@@ -74,6 +74,8 @@ class Aggregator:
 
         aggregator_logger.debug(f"Aggregator: Participant {body.get('user')} updated with all fields for call_id {body.get('call_id')}")
 
+        self._store(body.get("call_id"))
+
     def aggregator_server_info(self, message: IncomingMessage):
         """
         Handles the server information message from the message service.
@@ -94,6 +96,8 @@ class Aggregator:
         participant.server_ip = body["server_ip"]
         participant.server_port = int(body["server_port"]) if body["server_port"] is not None else None
 
+        self._store(body.get("call_id"))
+
     def aggregator_ack(self, message: IncomingMessage):
         """
         Handles the acknowledgment message from the message service.
@@ -111,14 +115,11 @@ class Aggregator:
             return
 
         self._call_buffer[body.get("call_id")].start_time = datetime.fromisoformat(body.get("start_time"))
-        print(f"Aggregator: Buffer: {self._call_buffer[body.get("call_id")]}")
+        print(f"Aggregator Buffer: {self._call_buffer[body.get("call_id")]}")
 
-        # TODO call to api to API
+        self._call_buffer[body.get("call_id")].ack_received = True
 
-        # save to the database
-        call_info = self._call_buffer.get(body.get("call_id"))
-        store_call_start(body.get("call_id"), call_info)
-        aggregator_logger.debug(f"Call ID '{body.get("call_id")}' has been stored in db")
+        self._store(body.get("call_id"))
 
     def aggregator_call_end(self, message: IncomingMessage):
         """
@@ -227,3 +228,31 @@ class Aggregator:
                 f"Aggregator: New participant {body.get('user')} added to call_id {body.get('call_id')}")
 
         return participant
+
+    def _store(self, call_id: str):
+        """
+        Checks if the call information is complete and stores it in the database.
+        :param call_id: The ID of the call to check and store.
+        """
+        call_info = self._call_buffer.get(call_id)
+        if not call_info or not call_info.ack_received:
+            return
+
+        complete = True
+        for participant in call_info.participants:
+            if None in (
+                    participant.ip_address,
+                    participant.media_port,
+                    participant.mime_type,
+                    participant.server_ip,
+                    participant.server_port
+            ):
+                complete = False
+                break
+
+        if not complete:
+            return
+
+        store_call_start(call_id, call_info)
+
+

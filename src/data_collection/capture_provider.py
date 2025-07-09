@@ -57,6 +57,8 @@ class CaptureProvider(Thread):
             finally:
                 self.capture.close()
                 self.capture = None
+                self.loop.stop()
+                self.loop.close()
 
     def file_capture(self, display_filter):
         """
@@ -82,6 +84,8 @@ class CaptureProvider(Thread):
         finally:
             self.capture.close()
             self.capture = None
+            self.loop.stop()
+            self.loop.close()
 
             if os.path.exists(self.source_value) and os.path.isfile(self.source_value):
                 app_logger.debug(f"Removing file {self.source_value} after processing")

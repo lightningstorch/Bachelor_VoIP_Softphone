@@ -72,3 +72,17 @@ aggregator_log_level = _config['logging']['aggregator_log_level']
 call_context_log_level = _config['logging']['call_context_log_level']
 database_log_level = _config['logging']['database_log_level']
 
+# ===========================================
+#        Authentication Configuration
+# ===========================================
+secret_key = _config['authentication']['secret_key']
+algorithm = _config['authentication']['algorithm']
+access_token_expire_minutes = int(_config['authentication']['access_token_expire_minutes'])
+
+# ===========================================
+#           Admin Configuration
+# ===========================================
+admin_username = _config['admin']['username']
+admin_password = _config['admin']['password']
+
+

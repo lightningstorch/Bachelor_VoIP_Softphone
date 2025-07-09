@@ -3,16 +3,15 @@ import time
 import uvicorn
 
 from queue import Queue, Empty
-
-from api.api import start_api
 from call_context.manager_call_context import ManagerCallContext
-from config.config import captured_file_path, interface
+from config.config import captured_file_path, interface, admin_username, admin_password
 from data_collection.capture_provider import CaptureProvider
 from data_collection.packet_processor import PacketProcessor
 from datastructure.aggregator import Aggregator
 from datastructure.async_message_service import AsyncMessageService
 from my_logging.log_config import app_logger
-from datastructure.database.database import init_db, set_program_mode
+from datastructure.database.database import init_db, set_program_mode, get_user, set_user
+from utils.auth import hash_password
 
 #==================================
 #         Global Variables
@@ -29,10 +28,20 @@ message_service = AsyncMessageService()
 # ManagerCallContext instance
 manager_call_context = ManagerCallContext(message_service, cleanup_queue)
 
+# Current mode and source for the capture provider
+current_mode: str | None = None
+current_source: str | None = None
+
 
 #==================================
 #           Functions
 #==================================
+
+def start_api():
+    """
+    Starts the FastAPI application in a separate thread.
+    """
+    uvicorn.run("api.api:app", host="0.0.0.0", port=8000, log_level="warning")
 
 def start_packet_processor():
     """
@@ -94,6 +103,39 @@ def stop_program():
 
     app_logger.info("Program stopped successfully.")
 
+def set_admin(username: str, password: str):
+    """
+    Sets the admin user in the database. If the user does not exist,
+    it creates a new user with the provided username and hashed password.
+    :param username: The username for the admin user.
+    :param password: The password for the admin user.
+    """
+    db_user = get_user(username)
+    if not db_user:
+        hashed_pass = hash_password(password)
+        set_user(username, hashed_pass)
+
+def switch_mode(mode: str, source: str):
+    """
+    Switches the program mode and source for the CaptureProvider.
+    If the current mode and source are the same as the provided ones, it does nothing.
+    :param mode: The mode to switch to, either "live" or "file".
+    :param source: The source to switch to, either an interface or a file path.
+    """
+    global current_mode, current_source
+
+    if mode == current_mode and source == current_source:
+        app_logger.debug(f"Already in {mode} mode with source={source}, skipping start.")
+        print(f"Already in {mode} mode with source={source}, skipping start.")
+        return
+
+    set_program_mode(mode)
+    start_capture_provider(mode, source)
+
+    current_mode = mode
+    current_source = source
+
+
 #==================================
 #         Main Functions
 #==================================
@@ -108,6 +150,9 @@ def main():
     # Initialize the aggregator and Database
     Aggregator(message_service)
     init_db()
+
+    # check if admin is already created
+    set_admin(admin_username, admin_password)
 
     # init the API
     threading.Thread(target=start_api, daemon=True).start()
