@@ -43,22 +43,23 @@ class CaptureProvider(Thread):
         """
         app_logger.debug(f"Live capture on {self.source_value}")
 
-        while not self._stop_event.is_set():
-            try:
-                self.capture = pyshark.LiveCapture(interface=self.source_value, display_filter=display_filter)
-                for packet in self.capture.sniff(packet_count=10, timeout=1):
-                    if self._stop_event.is_set():
-                        break
+        try:
+            self.capture = pyshark.LiveCapture(interface=self.source_value, display_filter=display_filter)
 
-                    self.queue.put(packet)
+            while not self._stop_event.is_set():
+                try:
+                    #packets = self.capture.sniff(packet_count=10)
+                    for packet in self.capture.sniff(packet_count=10) or []:
+                        if self._stop_event.is_set():
+                            break
 
-            except Exception as e:
-                app_logger.error(f"Problem occurred while live capture: {e}")
-            finally:
-                self.capture.close()
-                self.capture = None
-                self.loop.stop()
-                self.loop.close()
+                        self.queue.put(packet)
+
+                except Exception as e:
+                    app_logger.error(f"Problem occurred while live capture: {e}")
+        finally:
+            self.capture.close()
+            self.capture = None
 
     def file_capture(self, display_filter):
         """
@@ -84,8 +85,6 @@ class CaptureProvider(Thread):
         finally:
             self.capture.close()
             self.capture = None
-            self.loop.stop()
-            self.loop.close()
 
             if os.path.exists(self.source_value) and os.path.isfile(self.source_value):
                 app_logger.debug(f"Removing file {self.source_value} after processing")
@@ -96,4 +95,5 @@ class CaptureProvider(Thread):
                     app_logger.error(f"Error removing file {self.source_value}: {e}")
 
     def stop(self):
+        app_logger.debug(f"Stop called on capture_provider {self.name}")
         self._stop_event.set()
