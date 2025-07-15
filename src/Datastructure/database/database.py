@@ -1,4 +1,4 @@
-
+from narwhals import Boolean
 from sqlalchemy import create_engine, Engine, event
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker, joinedload
@@ -317,6 +317,7 @@ def set_user(username: str, password: str):
     Set a user in the database.
     :param username: The username to set.
     :param password: The password for the user.
+    :return: True if the user was set successfully, False otherwise and None if the user already exists.
     """
     session = Session()
     try:
@@ -328,17 +329,20 @@ def set_user(username: str, password: str):
             session.add(new_user)
         session.commit()
         database_logger.debug(f"User '{username}' has been set in db")
+        return True
     except Exception as e:
         session.rollback()
         database_logger.error(f"Error setting user '{username}': {e}")
+        return False
     finally:
         session.close()
 
-def change_password(username: str, new_password: str):
+def change_password(username: str, new_password: str) -> bool:
     """
     Change the password for a user in the database.
     :param username: The username for which to change the password.
     :param new_password: The new password to set.
+    :return: True if the password was changed successfully, False otherwise.
     """
     session = Session()
     try:
@@ -349,8 +353,34 @@ def change_password(username: str, new_password: str):
             database_logger.debug(f"Password for user '{username}' has been changed in db")
         else:
             database_logger.warning(f"User '{username}' not found in db")
+        return True
     except Exception as e:
         session.rollback()
         database_logger.error(f"Error changing password for user '{username}': {e}")
+        return False
+    finally:
+        session.close()
+
+def remove_user(username: str) -> bool:
+    """
+    Remove a user from the database.
+    :param username: The username of the user to remove.
+    :return: True if the user was removed successfully, False otherwise.
+    """
+    session = Session()
+    try:
+        existing_user = session.query(UiUser).filter_by(username=username).one_or_none()
+        if existing_user:
+            session.delete(existing_user)
+            session.commit()
+            database_logger.debug(f"User '{username}' has been removed from db")
+            return True
+        else:
+            database_logger.warning(f"User '{username}' not found in db")
+            return False
+    except Exception as e:
+        session.rollback()
+        database_logger.error(f"Error removing user '{username}': {e}")
+        return False
     finally:
         session.close()

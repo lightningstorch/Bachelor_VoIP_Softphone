@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Float, UniqueConstraint
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Float, UniqueConstraint, Index, func
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 
@@ -39,14 +39,6 @@ class Participants(Base):
 
 class TalkingSections(Base):
     __tablename__ = 'talking_sections'
-    __table_args__ = (
-        UniqueConstraint(
-            'participant_id',
-            'section_start',
-            'section_end',
-            name='uq_talking_sections_participant_interval'
-        ),
-    )
 
     id = Column(Integer, primary_key=True)
     call_id = Column(String, ForeignKey('calls.id'), nullable=False)
@@ -57,6 +49,18 @@ class TalkingSections(Base):
 
     participant = relationship("Participants", back_populates="talking_sections")
     call = relationship("Calls", back_populates="talking_sections")
+
+    __table_args__ = (
+        Index(
+            'ux_talking_sections_full',
+            'call_id',
+            func.coalesce(participant_id, -1),
+            'type',
+            'section_start',
+            'section_end',
+            unique=True
+        ),
+    )
 
 
 class ProgramMode(Base):
