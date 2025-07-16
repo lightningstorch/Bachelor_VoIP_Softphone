@@ -5,10 +5,8 @@ from collections import deque, defaultdict
 from dataclasses import asdict
 from queue import Empty, Queue
 from typing import Tuple
-
 from aio_pika import ExchangeType
 from cachetools import TTLCache
-
 from call_context.manager_call_context import ManagerCallContext
 from config.config import server_ip
 from datastructure.dataclass_models import Call, Participant, EventType, ServerInfo, ParticipantInfo
@@ -120,7 +118,7 @@ class PacketProcessor(threading.Thread):
         key = (rtp_packet.ip.src, rtp_packet.udp.srcport, rtp_packet.ip.dst, rtp_packet.udp.dstport)
 
         if key not in self._call_map:
-            app_logger.debug(f"RTP-paket without mapping: {key} → buffer length = {len(self._rtp_buffer[key]) + 1}")
+            app_logger.debug(f"RTP-paket without mapping: {key} -> buffer length = {len(self._rtp_buffer[key]) + 1}")
             self._rtp_buffer[key].append(rtp_packet)
             return
 

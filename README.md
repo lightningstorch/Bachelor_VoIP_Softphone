@@ -54,6 +54,9 @@ These must be installed separately in the respective compatible version.
 - uvicorn = 0.35.0
 - fastapi = 0.115.14
 - python-multipart = 0.0.20
+- passlib = 1.7.4
+- PyJWT = 2.10.1
+- sse-starlette = v2.4.1
 
 
 Licenses of the Library's: [Link](THIRD_PARTY_LICENSES.md)
@@ -91,6 +94,9 @@ pip install numpy
 pip install uvicorn
 pip install fastapi
 pip install python-multipart
+pip install passlib
+pip install PyJWT
+pip install sse-starlette
 ```
 
 ### Install the RabbitMQ server

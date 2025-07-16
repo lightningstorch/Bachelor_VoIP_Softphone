@@ -1,3 +1,4 @@
+import os.path
 import threading
 import time
 import uvicorn
@@ -9,7 +10,7 @@ from data_collection.capture_provider import CaptureProvider
 from data_collection.packet_processor import PacketProcessor
 from datastructure.aggregator import Aggregator
 from datastructure.async_message_service import AsyncMessageService
-from my_logging.log_config import app_logger
+from my_logging.log_config import app_logger, broadcast_log
 from datastructure.database.database import init_db, set_program_mode, get_user, set_user
 from utils.auth import hash_password
 
@@ -70,6 +71,9 @@ def start_capture_provider(mode: str, source: str):
         capture_provider.stop()
         capture_provider.join()
         _emptying_queue(queue_packets)
+
+        broadcast_log("system", f"Change Mode to {mode} and Source to {source}")
+
         print(f"Change Mode to {mode} and Source to {source}")
 
     capture_provider = CaptureProvider(
@@ -126,6 +130,9 @@ def switch_mode(mode: str, source: str):
 
     if mode == current_mode and source == current_source:
         app_logger.debug(f"Already in {mode} mode with source={source}, skipping start.")
+
+        broadcast_log("Info", f"Already in {mode} mode with source={os.path.basename(source)}, skipping start. Please choose another mode or source.")
+
         print(f"Already in {mode} mode with source={source}, skipping start.")
         return
 

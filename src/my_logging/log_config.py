@@ -1,8 +1,11 @@
 import logging
 import os
+import asyncio
 
-from config.config import app_log_level, message_service_log_level, aggregator_log_level, call_context_log_level, \
-    database_log_level
+from config.config import (
+    app_log_level, message_service_log_level,
+    aggregator_log_level, call_context_log_level,
+    database_log_level)
 
 """
 This module configures the loggers for the application.
@@ -16,6 +19,58 @@ Three loggers are set up:
 All loggers use the same format ('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 and write to individual log files in the LOGS_DIR directory.
 """
+#=======================================================
+#       Server-Sent Events (SSE) Logging Configuration
+#=======================================================
+
+# the global asyncio event loop for Server-Sent Events (SSE)
+_sse_loop: asyncio.AbstractEventLoop | None = None
+
+# Asyncio-Queue for Server-Sent Events (SSE) to hold events
+event_queue: asyncio.Queue[dict] = asyncio.Queue()
+
+def set_event_loop(loop: asyncio.AbstractEventLoop):
+    """
+    Sets the global asyncio event loop for Server-Sent Events (SSE).
+    :param loop: The asyncio event loop to set.
+    """
+    global _sse_loop
+    _sse_loop = loop
+
+async def _async_put(event_type: str, payload: str):
+    """
+    Asynchronously puts an event into the event queue.
+    :param event_type: The type of the event to be logged.
+    :param payload: The payload of the event to be logged.
+    """
+    await event_queue.put({
+        "type":      event_type,
+        "payload":   payload,
+    })
+
+def broadcast_log(event_type: str, payload: str):
+    """
+    Broadcasts a log event to the Server-Sent Events (SSE) async queue.
+    If the global SSE event loop is set, it uses that loop to schedule the event.
+    Otherwise, it puts the event directly into the event queue.
+    :param event_type: The type of the event to be logged.
+    :param payload: The payload of the event to be logged.
+    """
+    if _sse_loop:
+        _sse_loop.call_soon_threadsafe(
+            asyncio.create_task,
+            _async_put(event_type, payload)
+        )
+    else:
+        event_queue.put_nowait(
+        {
+            "type": event_type,
+            "payload": payload
+        })
+
+#=========================================
+#       Server - Logging Configuration
+#=========================================
 
 def _get_log_level(level_str):
     try:
@@ -28,10 +83,9 @@ os.makedirs(LOGS_DIR, exist_ok=True)
 
 logging_format = app_formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
-
-# --------------------------------
-# Configuration of the App-Loggers
-# --------------------------------
+#=========================================
+#   Configuration of the App-Loggers
+#=========================================
 app_logger = logging.getLogger('app')
 app_logger.setLevel(_get_log_level(app_log_level))
 
@@ -42,9 +96,9 @@ if not app_logger.handlers:
 
     app_logger.addHandler(app_file_handler)
 
-# -------------------------------------
+#===============================================
 # Configuration of the Message-Service-Loggers
-# -------------------------------------
+#===============================================
 message_service_logger = logging.getLogger('message_service')
 message_service_logger.setLevel(_get_log_level(message_service_log_level))
 
@@ -57,9 +111,9 @@ if not message_service_logger.handlers:
     # Important: Deactivate propagation so that these logs do not also end up in app.log
     message_service_logger.propagate = False
 
-# -------------------------------------
+#==========================================
 # Configuration of the Aggregator-Loggers
-# -------------------------------------
+#==========================================
 aggregator_logger = logging.getLogger('aggregator')
 aggregator_logger.setLevel(_get_log_level(aggregator_log_level))
 
@@ -72,9 +126,9 @@ if not aggregator_logger.handlers:
     # Important: Deactivate propagation so that these logs do not also end up in app.log
     aggregator_logger.propagate = False
 
-# -------------------------------------
+#=============================================
 # Configuration of the Call_Context-Loggers
-# -------------------------------------
+#=============================================
 call_context_logger = logging.getLogger('call_context')
 call_context_logger.setLevel(_get_log_level(call_context_log_level))
 
@@ -88,9 +142,9 @@ if not call_context_logger.handlers:
     call_context_logger.propagate = False
 
 
-# -------------------------------------
-# Configuration of the Database-Loggers
-# -------------------------------------
+#==========================================
+#   Configuration of the Database-Loggers
+#==========================================
 database_logger = logging.getLogger('database')
 database_logger.setLevel(_get_log_level(database_log_level))
 

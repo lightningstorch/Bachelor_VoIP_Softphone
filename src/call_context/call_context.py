@@ -7,7 +7,7 @@ from analysis.audio_analysis import AudioAnalysis
 from analysis.buffer import Buffer
 from config.config import default_audio_sample_rate
 from datastructure.async_message_service import AsyncMessageService
-from datastructure.dataclass_models import TalkingInterval, EventType
+from datastructure.dataclass_models import TalkingInterval
 from my_logging.log_config import app_logger, call_context_logger
 
 

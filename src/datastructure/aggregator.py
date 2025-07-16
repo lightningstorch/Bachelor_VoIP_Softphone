@@ -6,7 +6,7 @@ from aio_pika import IncomingMessage, ExchangeType
 from datastructure.database.database import store_call_start, store_call_end, store_ssrc, store_talking_sections
 from datastructure.dataclass_models import CallInfo, ParticipantInfo, TalkingInterval
 from typing import Dict
-from my_logging.log_config import app_logger, aggregator_logger
+from my_logging.log_config import app_logger, aggregator_logger, broadcast_log
 
 
 class Aggregator:
@@ -39,6 +39,8 @@ class Aggregator:
 
         # store in the buffer
         self._call_buffer[body.get("call_id")] = CallInfo(caller=body.get("caller"))
+
+        broadcast_log("New Call:", f"A new call is detected with the call id '{body.get('call_id')}'")
 
         print(f"Aggregator: New call is temporarily saved: '{body.get('call_id')}'")
         aggregator_logger.debug(f"Aggregator: New call is temporarily saved: '{body.get('call_id')}'")
@@ -115,6 +117,9 @@ class Aggregator:
             return
 
         self._call_buffer[body.get("call_id")].start_time = datetime.fromisoformat(body.get("start_time"))
+
+        broadcast_log("Ack:", f"The Call is accepted with this Data '{self._call_buffer[body.get("call_id")]}'")
+
         print(f"Aggregator Buffer: {self._call_buffer[body.get("call_id")]}")
 
         self._call_buffer[body.get("call_id")].ack_received = True
@@ -142,6 +147,9 @@ class Aggregator:
         store_call_end(body.get("call_id"), call_info)
 
         aggregator_logger.info(f"Call ID '{body.get("call_id")}' has been finished and stored in db")
+
+        broadcast_log(f"Call End {body.get("call_id")}:", f"The Call is finished")
+
         print(f"Aggregator: Call ID '{body.get("call_id")}' has been finished and stored in db")
 
     def aggregator_call_decline(self, message: IncomingMessage):
@@ -159,6 +167,9 @@ class Aggregator:
         remove_call_id = self._call_buffer.pop(body.get("call_id"))
         if remove_call_id is not None:
             print(f"Removing call id '{body.get("call_id")}'")
+
+            broadcast_log("Call Decline:", f"Call ID '{body.get('call_id')}' has been declined")
+
             aggregator_logger.info(f"Call ID '{body.get("call_id")}' has been declined")
 
     def aggregator_ssrc(self, message: IncomingMessage):
@@ -180,6 +191,8 @@ class Aggregator:
 
         store_ssrc(body.get("call_id"), body.get("ssrc"), body.get("user"))
         aggregator_logger.debug(f"SSRC '{body.get('ssrc')}' has been stored in db")
+
+        broadcast_log("aggregator:", f"SSRC '{body.get('ssrc')}' has been stored in db")
 
     @staticmethod
     def aggregator_talking_section(message: IncomingMessage):
@@ -205,6 +218,8 @@ class Aggregator:
         )
 
         aggregator_logger.debug(f"Talking section for call ID '{body.get('call_id')}' and SSRC '{body.get('ssrc')}' has been stored in db")
+
+        broadcast_log(f"Talking Section {body.get('call_id')}:", f"Type: {body.get('type')}, Call ID: {body.get('call_id')}, SSRC: {body.get('ssrc')}, Start: {body.get('start')}, End: {body.get('end')}")
 
 
 #===================================

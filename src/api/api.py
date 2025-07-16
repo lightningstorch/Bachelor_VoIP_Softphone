@@ -1,22 +1,38 @@
+import asyncio
+import json
 import os
 import tempfile
 
+from contextlib import asynccontextmanager
 from typing import List, Literal
-
+from sse_starlette.sse import EventSourceResponse
 from datastructure.database.models import UiUser
-from fastapi import FastAPI, HTTPException, WebSocket, Form, File, UploadFile, Depends
-from datastructure.database.database import get_call_history_lite, get_full_call_data, get_program_mode, \
-    set_program_mode, get_user, change_password, set_user, remove_user
+from fastapi import FastAPI, HTTPException, Form, File, UploadFile, Depends, Request
+from datastructure.database.database import (get_call_history_lite, get_full_call_data, get_program_mode,
+                                             get_user, change_password, set_user, remove_user)
 from datastructure.dataclass_models import CallHistoryLite, CallDetail
 from config.config import interface
 from fastapi.security import OAuth2PasswordRequestForm
-from main import start_capture_provider, switch_mode
+from main import switch_mode
 from utils.auth import authenticate, create_token, verify_token, verify_password, hash_password
+from my_logging.log_config import event_queue, set_event_loop, app_logger
+
 
 #===================================
 #         FastAPI Application
 #===================================
-app = FastAPI(title="Call History API")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """
+    Lifespan event handler for the FastAPI application. And start the asyncio event loop.
+    :param app: The FastAPI application instance.
+    :return: Yields control to the application during its lifespan.
+    """
+    loop = asyncio.get_running_loop()
+    set_event_loop(loop)
+    yield
+
+app = FastAPI(title="Call History API", lifespan=lifespan)
 
 # Temporary directory for file uploads
 UPLOAD_DIR = tempfile.gettempdir()
@@ -44,7 +60,7 @@ def get_call_details(call_id: str, current_user: UiUser = Depends(verify_token))
     """
     call = get_full_call_data(call_id)
     if not call:
-        return HTTPException(status_code=404, detail="Call not found")
+        raise HTTPException(status_code=404, detail="Call not found")
     return call
 
 @app.post("/api/mode")
@@ -178,4 +194,38 @@ async def login(from_data: OAuth2PasswordRequestForm = Depends()):
         return {"access_token": token, "token_type": "bearer"}
 
     raise HTTPException(status_code=401, detail="Invalid credentials")
+
+
+#===========================================================
+#         SSE (Server-Sent Events) Client Functions
+#===========================================================
+
+@app.get("/api/logs/stream")
+async def log_stream(
+        request: Request,
+        current_user: UiUser = Depends(verify_token)
+):
+    print("🟢 [SSE] New client connected")
+    app_logger.info("New sse-client connected")
+    async def event_generator():
+
+        while True:
+            if await request.is_disconnected():
+                break
+
+            try:
+                event = await asyncio.wait_for(event_queue.get(), timeout=15)
+                yield {
+                    "event": event["type"],
+                    "data": json.dumps(event["payload"])
+                }
+
+            except asyncio.TimeoutError:
+                yield {
+                    "event": "keep-alive",
+                    "data": "ping"
+                }
+
+    return EventSourceResponse(event_generator())
+
 

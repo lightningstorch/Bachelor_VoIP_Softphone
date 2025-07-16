@@ -6,7 +6,7 @@ from config.config import database_type, database_connection
 from datastructure.database.models import Base, Calls, Participants, TalkingSections, ProgramMode, UiUser
 from datastructure.dataclass_models import CallInfo, TalkingInterval, EventType, CallHistoryLite, CallDetail, \
     Participant
-from my_logging.log_config import database_logger
+from my_logging.log_config import database_logger, broadcast_log
 
 engine = create_engine(
     database_connection,
@@ -42,7 +42,9 @@ def store_call_start(call_id: str, call_info: CallInfo):
 
     if session.get(Calls, call_id):
         database_logger.debug(f"Call ID '{call_id}' already exists in db")
+        broadcast_log("Database", f"Call ID '{call_id}' already exists in db")
         print(f"Call ID '{call_id}' already exists in db")
+
         session.close()
         return
 
@@ -69,12 +71,19 @@ def store_call_start(call_id: str, call_info: CallInfo):
             session.add(new_participant)
 
         session.commit()
+
         print(f"Call ID '{call_id}' has been commited to db")
+
+        broadcast_log("Database", f"Call ID '{call_id}' has been stored in db")
+
         database_logger.debug(f"Call ID '{call_id}' has been stored in db")
     except Exception as e:
         session.rollback()
+
         database_logger.error(f"Error with rollback while storing call id '{call_id}' in db: {e}")
+
         print(f"Error with rollback while storing call id '{call_id}' in db: {e}")
+        broadcast_log("Database", f"Error with rollback while storing call id '{call_id}' in db: {e}")
 
     finally:
         session.close()
@@ -93,8 +102,12 @@ def store_call_end(call_id: str, call_info: CallInfo):
         try:
             call.end_time = call_info.end_time
             session.commit()
+
             database_logger.debug(f"Call ID '{call_id}' has been updated in db")
+
             print(f"Call ID '{call_id}' has been updated in db")
+
+            broadcast_log("Database", f"Call ID '{call_id}' has been updated in db")
         except Exception as e:
             database_logger.error(f"Error with rollback while updating the end time of call id '{call_id}' in db: {e}")
             session.rollback()
@@ -120,13 +133,18 @@ def store_ssrc(call_id: str, ssrc: str, user: str):
             participant.ssrc = str(ssrc)
             session.commit()
             database_logger.debug(f"SSRC '{ssrc}' has been updated for call ID '{call_id}' in db")
+
             print(f"SSRC '{ssrc}' has been updated for call ID '{call_id}' in db")
+
+            broadcast_log("Database", f"SSRC '{ssrc}' has been updated for call ID '{call_id}' in db")
         except Exception as e:
             session.rollback()
             database_logger.error(f"Error with rollback while updating SSRC '{ssrc}' for call ID '{call_id}' in db: {e}")
     else:
         database_logger.warning(f"Call ID '{call_id}' not found in db")
         print(f"Call ID '{call_id}' not found in db")
+
+        broadcast_log("Database", f"Call ID '{call_id}' not found in db")
 
     session.close()
 
@@ -225,9 +243,9 @@ def get_full_call_data(call_id: str):
 
         result = CallDetail(
             call_id=str(call.id),
-            caller=str(call.caller) if call.caller else None,
-            start_time=call.start_time.isoformat() if call.start_time else None,
-            end_time=call.end_time.isoformat() if call.end_time else None,
+            caller=str(call.caller) if call.caller else "N/A",
+            start_time=call.start_time.isoformat() if call.start_time else "N/A",
+            end_time=call.end_time.isoformat() if call.end_time else "N/A",
             participants=[
                 Participant(
                     type=EventType.API,
@@ -245,7 +263,7 @@ def get_full_call_data(call_id: str):
                 TalkingInterval(
                     type=section.type,
                     call_id=str(call.id),
-                    ssrc=(section.participant.ssrc if section.participant else None),
+                    ssrc=(section.participant.ssrc if section.participant else "N/A"),
                     start=section.section_start,
                     end=section.section_end
                 ) for section in call.talking_sections
@@ -384,3 +402,4 @@ def remove_user(username: str) -> bool:
         return False
     finally:
         session.close()
+
