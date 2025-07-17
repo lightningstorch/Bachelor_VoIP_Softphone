@@ -6,7 +6,8 @@ from config.config import database_type, database_connection
 from datastructure.database.models import Base, Calls, Participants, TalkingSections, ProgramMode, UiUser
 from datastructure.dataclass_models import CallInfo, TalkingInterval, EventType, CallHistoryLite, CallDetail, \
     Participant
-from my_logging.log_config import database_logger, broadcast_log
+from my_logging.log_config import database_logger, broadcast_log, app_logger
+from utils.validation import call_match
 
 engine = create_engine(
     database_connection,
@@ -40,43 +41,46 @@ def store_call_start(call_id: str, call_info: CallInfo):
     """
     session = Session()
 
-    if session.get(Calls, call_id):
-        database_logger.debug(f"Call ID '{call_id}' already exists in db")
-        broadcast_log("Database", f"Call ID '{call_id}' already exists in db")
-        print(f"Call ID '{call_id}' already exists in db")
-
-        session.close()
-        return
-
     try:
-        new_call = Calls(
-            id=call_id,
-            caller=call_info.caller,
-            start_time=call_info.start_time,
-            end_time=call_info.end_time
-        )
-        session.add(new_call)
 
-        for participant in call_info.participants:
-            new_participant = Participants(
-                call_id=call_id,
-                user=participant.user,
-                ip_address=participant.ip_address,
-                media_port=participant.media_port,
-                mime_type=participant.mime_type,
-                server_ip=participant.server_ip,
-                server_port=participant.server_port,
-                ssrc=participant.ssrc
+        db_call = session.query(Calls).options(joinedload(Calls.participants)).filter_by(id=call_id).one_or_none()
+
+        if db_call and call_match(call_info, db_call):
+                print(f"Call ID '{call_id}' already exists and matches. Skipping insert.")
+                app_logger.debug(f"Call ID '{call_id}' already exists and matches. Skipping insert.")
+                broadcast_log("Database", f"Call ID '{call_id}' already exists and matches. Skipping insert.")
+                return
+
+        elif db_call:
+            db_call.caller = call_info.caller
+            db_call.start_time = call_info.start_time
+            if db_call.end_time is None:
+                db_call.end_time = call_info.end_time
+
+            session.query(Participants).filter_by(call_id=call_id).delete()
+            insert_participants(session, call_id, call_info)
+
+            print(f"Call ID '{call_id}' already exists but differs. Update the call info and re-insert the participants.")
+            broadcast_log("Database", f"Call ID '{call_id}' already exists but differs. Update the call info and re-insert the participants.")
+            database_logger.debug(f"Call ID '{call_id}' already exists but differs. Update the call info and re-insert the participants.")
+
+        else:
+            new_call = Calls(
+                id=call_id,
+                caller=call_info.caller,
+                start_time=call_info.start_time,
+                end_time=call_info.end_time
             )
-            session.add(new_participant)
+            session.add(new_call)
+
+            insert_participants(session, call_id, call_info)
+
+            print(f"Call ID '{call_id}' has been stored in db")
+            broadcast_log("Database", f"Call ID '{call_id}' has been storedin db")
+            database_logger.debug(f"Call ID '{call_id}' has been stored in db")
 
         session.commit()
 
-        print(f"Call ID '{call_id}' has been commited to db")
-
-        broadcast_log("Database", f"Call ID '{call_id}' has been stored in db")
-
-        database_logger.debug(f"Call ID '{call_id}' has been stored in db")
     except Exception as e:
         session.rollback()
 
@@ -141,10 +145,10 @@ def store_ssrc(call_id: str, ssrc: str, user: str):
             session.rollback()
             database_logger.error(f"Error with rollback while updating SSRC '{ssrc}' for call ID '{call_id}' in db: {e}")
     else:
-        database_logger.warning(f"Call ID '{call_id}' not found in db")
-        print(f"Call ID '{call_id}' not found in db")
+        database_logger.warning(f"Inserting {ssrc} not possible now because Call ID '{call_id}' not found in db")
+        print(f"Inserting {ssrc} not possible now because Call ID '{call_id}' not found in db")
 
-        broadcast_log("Database", f"Call ID '{call_id}' not found in db")
+        broadcast_log("Database", f"Inserting {ssrc} not possible now because Call ID '{call_id}' not found in db")
 
     session.close()
 
@@ -193,6 +197,25 @@ def store_talking_sections(talking_interval: TalkingInterval):
     finally:
         session.close()
 
+def get_call_by_id(call_id: str):
+    """
+    Retrieve a call by its ID from the database.
+    :param call_id: The unique identifier for the call.
+    :return: The Call object if found, otherwise None.
+    """
+    session = Session()
+    try:
+        call = (session.query(Calls)
+                .options(joinedload(Calls.participants))
+                .filter_by(id=call_id)
+                .one_or_none()
+                )
+        return call
+    except Exception as e:
+        database_logger.error(f"Error retrieving call with ID '{call_id}': {e}")
+        return None
+    finally:
+        session.close()
 
 #--------------------------------------------
 # Database operations for API
@@ -402,4 +425,29 @@ def remove_user(username: str) -> bool:
         return False
     finally:
         session.close()
+
+
+#--------------------------------------------
+# Database operations for API
+#--------------------------------------------
+
+def insert_participants(session, call_id: str, call_info: CallInfo):
+    """
+    Insert participants into the database for a specific call.
+    :param call_info: The CallInfo object contains details about the call and its participants.
+    :param session: The database session.
+    :param call_id: The unique identifier for the call.
+    """
+    for participant in call_info.participants:
+        new_participant = Participants(
+            call_id=call_id,
+            user=participant.user,
+            ip_address=participant.ip_address,
+            media_port=participant.media_port,
+            mime_type=participant.mime_type,
+            server_ip=participant.server_ip,
+            server_port=participant.server_port,
+            ssrc=participant.ssrc
+        )
+        session.add(new_participant)
 

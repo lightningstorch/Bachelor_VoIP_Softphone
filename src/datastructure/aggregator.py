@@ -118,11 +118,10 @@ class Aggregator:
 
         self._call_buffer[body.get("call_id")].start_time = datetime.fromisoformat(body.get("start_time"))
 
-        broadcast_log("Ack:", f"The Call is accepted with this Data '{self._call_buffer[body.get("call_id")]}'")
-
-        print(f"Aggregator Buffer: {self._call_buffer[body.get("call_id")]}")
-
         self._call_buffer[body.get("call_id")].ack_received = True
+
+        broadcast_log("Ack:", f"The Call is accepted with this Data '{self._call_buffer[body.get("call_id")]}'")
+        print(f"Aggregator Buffer: {self._call_buffer[body.get("call_id")]}")
 
         self._store(body.get("call_id"))
 
@@ -189,10 +188,14 @@ class Aggregator:
         if participant:
             participant.ssrc = body.get("ssrc")
 
-        store_ssrc(body.get("call_id"), body.get("ssrc"), body.get("user"))
-        aggregator_logger.debug(f"SSRC '{body.get('ssrc')}' has been stored in db")
-
-        broadcast_log("aggregator:", f"SSRC '{body.get('ssrc')}' has been stored in db")
+        if self._call_buffer[body.get("call_id")].stored:
+            store_ssrc(body.get("call_id"), body.get("ssrc"), body.get("user"))
+            aggregator_logger.debug(f"SSRC '{body.get('ssrc')}' has been stored in db")
+            broadcast_log("aggregator:", f"SSRC '{body.get('ssrc')}' has been stored in db")
+        else:
+            aggregator_logger.debug(f"SSRC '{body.get('ssrc')}' detection to fast, save it in the buffer")
+            broadcast_log("SSRC Detection:", f"SSRC '{body.get('ssrc')}' detection to fast, save it in the buffer - ack will process it later")
+            print(f"SSRC '{body.get('ssrc')}' detection to fast, save it in the buffer - ack will process it later")
 
     @staticmethod
     def aggregator_talking_section(message: IncomingMessage):
@@ -269,5 +272,10 @@ class Aggregator:
             return
 
         store_call_start(call_id, call_info)
+        self._call_buffer[call_id].stored = True
 
-
+        #Safety mechanism: if aggregator_ack() and aggregator_ssrc() are processed
+        # simultaneously, in the worst case ssrc may never be saved.
+        for participant in call_info.participants:
+            if participant.ssrc:
+                store_ssrc(call_id, participant.ssrc, participant.user)

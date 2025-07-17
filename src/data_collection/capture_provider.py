@@ -2,6 +2,7 @@ import os
 import threading
 import asyncio
 import pyshark
+import time
 
 from threading import Event, Thread
 from my_logging.log_config import app_logger
@@ -48,8 +49,8 @@ class CaptureProvider(Thread):
 
             while not self._stop_event.is_set():
                 try:
-                    #packets = self.capture.sniff(packet_count=10)
-                    for packet in self.capture.sniff(packet_count=10) or []:
+                    #packets = self.capture.sniff_continuously()
+                    for packet in self.capture.sniff_continuously():
                         if self._stop_event.is_set():
                             break
 

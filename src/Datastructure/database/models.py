@@ -17,6 +17,11 @@ class Calls(Base):
     # relationship to talking_section
     talking_sections = relationship("TalkingSections", back_populates="call")
 
+    def __repr__(self):
+        return (
+            f"Calls(id='{self.id}', caller='{self.caller}', start_time={self.start_time}, end_time={self.end_time}, "
+            f"participants=[{', '.join(repr(p) for p in self.participants)}])"
+        )
 
 class Participants(Base):
     __tablename__ = 'participants'
@@ -36,6 +41,11 @@ class Participants(Base):
     # relationship to talking_section
     talking_sections = relationship("TalkingSections", back_populates="participant")
 
+    def __repr__(self):
+        return (
+            f"Participant(user='{self.user}', ip='{self.ip_address}', port={self.media_port}, "
+            f"mime='{self.mime_type}', server_ip='{self.server_ip}', server_port={self.server_port}, ssrc={self.ssrc})"
+        )
 
 class TalkingSections(Base):
     __tablename__ = 'talking_sections'
@@ -61,7 +71,6 @@ class TalkingSections(Base):
             unique=True
         ),
     )
-
 
 class ProgramMode(Base):
     __tablename__ = 'program_mode'

@@ -41,7 +41,8 @@ class CallInfo:
     start_time: datetime = None
     end_time: datetime = None
     participants: List[ParticipantInfo] = field(default_factory=list)
-    ack_received: bool = False
+    ack_received: bool = False # Indicates if the ACK message has been received and can be stored
+    stored: bool = False # Indicates if the call information has been stored in the database
 
 
 # -------------------------------------------------------------
