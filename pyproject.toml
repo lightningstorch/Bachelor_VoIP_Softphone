@@ -6,6 +6,7 @@ build-backend = "setuptools.build_meta"
 markers = [
   "slow: mark slow tests (dauern länger und werden lokal übersprungen)",
 ]
+pythonpath = ["."]
 
 
 

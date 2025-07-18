@@ -18,8 +18,8 @@ def test_full_config_loading():
     assert config.database_connection == 'db.sqlite3'
 
     assert config.captured_file_path == (Path.cwd() / 'data/file.wav').resolve()
-    assert config.rabbitmq_host == 'localhost'
 
+    assert config.rabbitmq_host == 'localhost'
     assert config.rabbitmq_port == 5672
     assert config.rabbitmq_user == 'guest'
     assert config.rabbitmq_password == 'guest'
@@ -34,6 +34,13 @@ def test_full_config_loading():
     assert config.bandpass_min_frequency == 300
     assert config.bandpass_max_frequency == 3400
     assert config.bandpass_order == 5
+
+    assert config.secret_key == '123456789'
+    assert config.algorithm == 'HS256'
+    assert config.access_token_expire_minutes == 30
+
+    assert config.admin_username == 'admin'
+    assert config.admin_password == 'admin'
 
 
 @pytest.mark.parametrize("ini_fixture, expected_order, expected_mode", [

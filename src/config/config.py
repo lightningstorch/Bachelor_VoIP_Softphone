@@ -1,4 +1,5 @@
 import configparser
+import os
 from pathlib import Path
 
 """
@@ -25,7 +26,10 @@ server_ip = _config['network']['server_ip']
 interface = _config['network']['interface']
 
 database_type = _config['database']['type']
-database_connection = _config['database']['connection_string']
+database_connection = os.environ.get(
+    "DATABASE_CONNECTION",
+    _config['database']['connection_string']
+)
 
 _cf = _config['captured_file']
 fp = Path(_cf['file_path'])

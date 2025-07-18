@@ -2,22 +2,33 @@ from narwhals import Boolean
 from sqlalchemy import create_engine, Engine, event
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker, joinedload
-from config.config import database_type, database_connection
 from datastructure.database.models import Base, Calls, Participants, TalkingSections, ProgramMode, UiUser
 from datastructure.dataclass_models import CallInfo, TalkingInterval, EventType, CallHistoryLite, CallDetail, \
     Participant
 from my_logging.log_config import database_logger, broadcast_log, app_logger
 from utils.validation import call_match
 
-engine = create_engine(
-    database_connection,
-    connect_args={"check_same_thread": False} if database_type == "sqlite" else {},
-)
-
-Session = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+_engine = None
+_session = None
 
 def init_db():
-    Base.metadata.create_all(bind=engine)
+    Base.metadata.create_all(bind=get_engine())
+
+def get_engine():
+    global _engine
+    if _engine is None:
+        from config.config import database_connection, database_type
+        _engine = create_engine(
+            database_connection,
+            connect_args={"check_same_thread": False} if database_type == "sqlite" else {}
+        )
+    return _engine
+
+def get_session():
+    global _session
+    if _session is None:
+        _session = sessionmaker(autocommit=False, autoflush=False, bind=get_engine())
+    return _session()
 
 @event.listens_for(Engine, "connect")
 def _activate_sqlite_wal(dbapi_connection, connection_record):
@@ -26,6 +37,7 @@ def _activate_sqlite_wal(dbapi_connection, connection_record):
     :param dbapi_connection: The database connection object.
     :param connection_record: The connection record object.
     """
+    from config.config import database_type
     if database_type == "sqlite":
         curser = dbapi_connection.cursor()
         curser.execute("PRAGMA journal_mode=WAL;")
@@ -39,7 +51,7 @@ def store_call_start(call_id: str, call_info: CallInfo):
     :param call_id: The unique identifier for the call.
     :param call_info: The CallInfo object containing details about the call.
     """
-    session = Session()
+    session = get_session()
 
     try:
 
@@ -99,7 +111,7 @@ def store_call_end(call_id: str, call_info: CallInfo):
     :param call_id: The unique identifier for the call.
     :param call_info: The CallInfo object containing details about the call, specifically the end time.
     """
-    session = Session()
+    session = get_session()
 
     call = session.get(Calls, call_id)
     if call:
@@ -129,7 +141,7 @@ def store_ssrc(call_id: str, ssrc: str, user: str):
     :param ssrc: The SSRC to be stored.
     :param user: The user associated with the SSRC.
     """
-    session = Session()
+    session = get_session()
 
     participant = session.query(Participants).filter_by(call_id=call_id, user=user).one_or_none()
     if participant:
@@ -160,7 +172,7 @@ def store_talking_sections(talking_interval: TalkingInterval):
     :param talking_interval: The TalkingInterval object contains details
     about the talking section.
     """
-    session = Session()
+    session = get_session()
 
     call_id = talking_interval.call_id
     ssrc = talking_interval.ssrc
@@ -203,7 +215,7 @@ def get_call_by_id(call_id: str):
     :param call_id: The unique identifier for the call.
     :return: The Call object if found, otherwise None.
     """
-    session = Session()
+    session = get_session()
     try:
         call = (session.query(Calls)
                 .options(joinedload(Calls.participants))
@@ -226,7 +238,7 @@ def get_call_history_lite():
     Retrieve a list of call history entries with minimal details.
     :return: List of CallHistoryLite objects.
     """
-    session = Session()
+    session = get_session()
     try:
         calls = session.query(Calls).order_by(Calls.start_time.desc()).all()
 
@@ -251,7 +263,7 @@ def get_full_call_data(call_id: str):
     :return: All details of the call including participants and talking intervals.
     """
 
-    session = Session()
+    session = get_session()
     try:
         call = (session.
                  query(Calls)
@@ -305,7 +317,7 @@ def get_program_mode():
     Retrieve the current program mode from the database.
     :return: The current mode as a string.
     """
-    session = Session()
+    session = get_session()
     try:
         mode = session.query(ProgramMode).first()
         if mode:
@@ -321,7 +333,7 @@ def set_program_mode(mode: str):
     Set the current program mode in the database.
     :param mode: The mode to set, either "live" or "file".
     """
-    session = Session()
+    session = get_session()
     try:
         existing_mode = session.query(ProgramMode).first()
         if existing_mode:
@@ -343,7 +355,7 @@ def get_user(username: str):
     :param username: The username to search for.
     :return: The participant object if found, otherwise None.
     """
-    session = Session()
+    session = get_session()
     try:
         user = session.query(UiUser).filter_by(username=username).one_or_none()
         return user
@@ -360,7 +372,7 @@ def set_user(username: str, password: str):
     :param password: The password for the user.
     :return: True if the user was set successfully, False otherwise and None if the user already exists.
     """
-    session = Session()
+    session = get_session()
     try:
         existing_user = session.query(UiUser).filter_by(username=username).one_or_none()
         if existing_user:
@@ -385,7 +397,7 @@ def change_password(username: str, new_password: str) -> bool:
     :param new_password: The new password to set.
     :return: True if the password was changed successfully, False otherwise.
     """
-    session = Session()
+    session = get_session()
     try:
         existing_user = session.query(UiUser).filter_by(username=username).one_or_none()
         if existing_user:
@@ -408,7 +420,7 @@ def remove_user(username: str) -> bool:
     :param username: The username of the user to remove.
     :return: True if the user was removed successfully, False otherwise.
     """
-    session = Session()
+    session = get_session()
     try:
         existing_user = session.query(UiUser).filter_by(username=username).one_or_none()
         if existing_user:
