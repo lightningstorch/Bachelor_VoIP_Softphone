@@ -49,7 +49,7 @@ def store_call_start(call_id: str, call_info: CallInfo):
     This function checks if the call ID already exists in the database.
     If it does, it logs a message and returns without making any changes.
     :param call_id: The unique identifier for the call.
-    :param call_info: The CallInfo object containing details about the call.
+    :param call_info: The CallInfo object contains details about the call.
     """
     session = get_session()
 
@@ -61,7 +61,7 @@ def store_call_start(call_id: str, call_info: CallInfo):
                 print(f"Call ID '{call_id}' already exists and matches. Skipping insert.")
                 app_logger.debug(f"Call ID '{call_id}' already exists and matches. Skipping insert.")
                 broadcast_log("Database", f"Call ID '{call_id}' already exists and matches. Skipping insert.")
-                return
+                return False
 
         elif db_call:
             db_call.caller = call_info.caller
@@ -109,29 +109,33 @@ def store_call_end(call_id: str, call_info: CallInfo):
     Store the end of a call in the database.
     This function updates the end time of an existing call in the database.
     :param call_id: The unique identifier for the call.
-    :param call_info: The CallInfo object containing details about the call, specifically the end time.
+    :param call_info: The CallInfo object contains details about the call, specifically the end time.
     """
     session = get_session()
 
-    call = session.get(Calls, call_id)
-    if call:
-        try:
-            call.end_time = call_info.end_time
-            session.commit()
+    try:
+        call = session.get(Calls, call_id)
 
-            database_logger.debug(f"Call ID '{call_id}' has been updated in db")
+        if call:
+            try:
+                call.end_time = call_info.end_time
+                session.commit()
 
-            print(f"Call ID '{call_id}' has been updated in db")
+                database_logger.debug(f"Call ID '{call_id}' has been updated in db")
 
-            broadcast_log("Database", f"Call ID '{call_id}' has been updated in db")
-        except Exception as e:
-            database_logger.error(f"Error with rollback while updating the end time of call id '{call_id}' in db: {e}")
-            session.rollback()
-    else:
-        database_logger.warning(f"Call ID '{call_id}' not found in db")
-        print(f"Call ID '{call_id}' not found in db")
+                print(f"Call ID '{call_id}' has been updated in db")
 
-    session.close()
+                broadcast_log("Database", f"Call ID '{call_id}' has been updated in db")
+            except Exception as e:
+                database_logger.error(f"Error with rollback while updating the end time of call id '{call_id}' in db: {e}")
+                session.rollback()
+        else:
+            database_logger.warning(f"Call ID '{call_id}' not found in db")
+            print(f"Call ID '{call_id}' not found in db")
+
+            return False
+    finally:
+        session.close()
 
 def store_ssrc(call_id: str, ssrc: str, user: str):
     """
@@ -143,26 +147,28 @@ def store_ssrc(call_id: str, ssrc: str, user: str):
     """
     session = get_session()
 
-    participant = session.query(Participants).filter_by(call_id=call_id, user=user).one_or_none()
-    if participant:
-        try:
-            participant.ssrc = str(ssrc)
-            session.commit()
-            database_logger.debug(f"SSRC '{ssrc}' has been updated for call ID '{call_id}' in db")
+    try:
+        participant = session.query(Participants).filter_by(call_id=call_id, user=user).one_or_none()
 
-            print(f"SSRC '{ssrc}' has been updated for call ID '{call_id}' in db")
+        if participant:
+            try:
+                participant.ssrc = str(ssrc)
+                session.commit()
+                database_logger.debug(f"SSRC '{ssrc}' has been updated for call ID '{call_id}' in db")
 
-            broadcast_log("Database", f"SSRC '{ssrc}' has been updated for call ID '{call_id}' in db")
-        except Exception as e:
-            session.rollback()
-            database_logger.error(f"Error with rollback while updating SSRC '{ssrc}' for call ID '{call_id}' in db: {e}")
-    else:
-        database_logger.warning(f"Inserting {ssrc} not possible now because Call ID '{call_id}' not found in db")
-        print(f"Inserting {ssrc} not possible now because Call ID '{call_id}' not found in db")
+                print(f"SSRC '{ssrc}' has been updated for call ID '{call_id}' in db")
 
-        broadcast_log("Database", f"Inserting {ssrc} not possible now because Call ID '{call_id}' not found in db")
-
-    session.close()
+                broadcast_log("Database", f"SSRC '{ssrc}' has been updated for call ID '{call_id}' in db")
+            except Exception as e:
+                session.rollback()
+                database_logger.error(f"Error with rollback while updating SSRC '{ssrc}' for call ID '{call_id}' in db: {e}")
+        else:
+            database_logger.warning(f"Inserting {ssrc} not possible now because Call ID '{call_id}' not found in db")
+            print(f"Inserting {ssrc} not possible now because Call ID '{call_id}' not found in db")
+            broadcast_log("Database", f"Inserting {ssrc} not possible now because Call ID '{call_id}' not found in db")
+            return False
+    finally:
+        session.close()
 
 def store_talking_sections(talking_interval: TalkingInterval):
     """
@@ -219,6 +225,7 @@ def get_call_by_id(call_id: str):
     try:
         call = (session.query(Calls)
                 .options(joinedload(Calls.participants))
+                .options(joinedload(Calls.talking_sections))
                 .filter_by(id=call_id)
                 .one_or_none()
                 )
@@ -256,7 +263,7 @@ def get_call_history_lite():
     finally:
         session.close()
 
-def get_full_call_data(call_id: str):
+def get_call_for_api(call_id: str):
     """
     Retrieve detailed information about a specific call by its ID.
     :param call_id: The unique identifier for the call.

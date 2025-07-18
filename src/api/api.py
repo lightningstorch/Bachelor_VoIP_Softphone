@@ -8,7 +8,7 @@ from typing import List, Literal
 from sse_starlette.sse import EventSourceResponse
 from datastructure.database.models import UiUser
 from fastapi import FastAPI, HTTPException, Form, File, UploadFile, Depends, Request
-from datastructure.database.database import (get_call_history_lite, get_full_call_data, get_program_mode,
+from datastructure.database.database import (get_call_history_lite, get_call_for_api, get_program_mode,
                                              get_user, change_password, set_user, remove_user)
 from datastructure.dataclass_models import CallHistoryLite, CallDetail
 from config.config import interface
@@ -58,7 +58,7 @@ def get_call_details(call_id: str, current_user: UiUser = Depends(verify_token))
     :param call_id: The unique identifier of the call.
     :return: The detailed information of the call.
     """
-    call = get_full_call_data(call_id)
+    call = get_call_for_api(call_id)
     if not call:
         raise HTTPException(status_code=404, detail="Call not found")
     return call
