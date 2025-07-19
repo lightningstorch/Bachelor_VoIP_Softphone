@@ -84,20 +84,20 @@ class ManagerCallContext:
         """
         if call_id in self.all_contexts:
             with self.lock:
-                if call_id not in self.all_contexts:
-                    app_logger.debug(f"Call ID '{call_id}' not found.")
 
                 call_context = self.all_contexts.pop(call_id)
                 call_context.stop()
 
                 self.cleanup_queue.put(call_id)
+        else:
+            app_logger.debug(f"Call ID '{call_id}' not found for ending the call.")
 
     def shutdown_all_calls(self):
         """
         Shutdown all calls
         """
         with self.lock:
-            for call_id, call_context in self.all_contexts.items():
+            for call_id, call_context in list(self.all_contexts.items()):
                 call_context.stop()
                 del self.all_contexts[call_id]
                 app_logger.debug(f"Call ID '{call_id}' stopped and removed.")
