@@ -18,24 +18,27 @@ and generate call statistics.*
 ---
 
 ## General Info
-The Bachelor_VoIP_Softphone is a Python tool for the automated analysis of <br>
-VoIP phone calls (SIP/RTP). It can directly read in a PCAP file (e.g. from Wireshark) or <br>
-live network traffic on a network interface. Packets are processed in separate threads via RabbitMQ: <br>
-SIP signaling is evaluated, RTP audio streams are reconstructed and broken down into voice intervals<br>
-using Voice Activity Detection (VAD). The program saves all metadata (call ID, participants, SSRCs, <br>
-voice segments) in a local SQLite database. A web interface for visualizing the call statistics <br>
-is intended to display this collected data in detail and provide an overview. <br>
-The program was developed as a bachelor's thesis in the Computer Science degree <br>
-program at the Johannes Kepler University Linz. <br>
+The Bachelor_VoIP_Softphone is a Python tool for the automated analysis of
+VoIP phone calls (SIP/RTP). It can directly read a PCAP file (e.g. from Wireshark) or
+live network traffic on a network interface. The program is splitting up in different threads to increase
+the performance, and the individual sections can communicate via RabbitMQ.
+The program captures and process SIP and RTP packets, reconstructs the audio streams, and performs
+Voice Activity Detection (VAD) to identify voice segments. <br> 
+The program saves all metadata (call ID, participants, SSRCs, voice segments) in a local SQLite database. 
+A web interface for visualizing the call statistics is intended to display this collected data in 
+detail and provide an overview. <br>
+The program was developed as a bachelor's thesis in the Computer Science degree
+at the Johannes Kepler University Linz (Upperaustria, Austria). <br>
 
 
 ## Project Status
-| Technology         | Description                                                                                                 | Status              |
-|--------------------|-------------------------------------------------------------------------------------------------------------|---------------------|
-| Audio processing   | Processing of RTP packets and recognition of speech segments <br> in the audio (currently without music on hold) | in progress         |
-| UI (Webbased / PC) | Development of a UI for the visual representation of <br> the most necessary data from the program          | planed in 1-2 Weeks |
-| Testing            |  Development of tests to prove the function       | in progress         |
+The program has now been fully developed and enables the full scope described.
+Various tests were carried out to verify the functionality of the program, all of which were successful.
+An end-to-end test was also carried out, which confirmed the functionality of the program.<br>
 
+Nevertheless, small bugs may occur that did not appear during development.
+If any bugs occur, please report them in the issue tracker 
+and I will try to fix them as soon as possible.<br>
 
 ## Prerequisites and Technologies
 This program uses additional libraries and applications that are not supplied with Python. 
@@ -115,7 +118,7 @@ navigating to `http://localhost:15672`. <br>
 The default username and password are both `guest`. <br>
 
 You can use the default User or crate a new one for your Program. <br>
-The user data and password must be inserted in the config.ini file. 
+The user data and password must be inserted in the `config.ini` file. 
 Also, the server IP and port must be specified, <br>
 so that the program can connect to the RabbitMQ server. <br>
 
@@ -139,47 +142,44 @@ python3 main.py
 ```
 
 ### The UI
-The UI is currently in development and will be available in the view version of the program. <br>
-It will be accessible via a web browser or program on the pc and will provide a visual representation <br>
-of the data processed by the program. <br>
+The first version of the UI is now available and can be used to visualize the data processed by the program. <br>
+It is a web-based interface that allows you to view the call statistics, participants, and voice segments. <br>
+You can also process live network traffic or PCAP files and visualize the data in real-time. <br>
+
+The Repository: [UI-Project-Link](https://github.com/lightningstorch/Bachelor_VoIP_UI)
 
 ## Usage
-The program needs a recorded or live network traffic, which ideally 
-was recorded with Wireshark. The path to the file must be inserted in the config.ini file (later via the UI).
-You must also specify whether it is an absolute or relative path so that the path can be resolved correctly. 
-For test purposes, an example of a recorded file is provided under the folder data, which gives 
-the desired output.
+The program can be used to process SIP and RTP packets from a PCAP file or live network traffic.
+To use the program, you need the UI project, which is a web-based interface that allows you to visualize 
+the data processed by the program and also to process live network traffic or PCAP files.
 
 Program can be started with the command `python main.py` or in the IDE, but the 
 Docker container RabbitMQ must be running so that the messages can be processed.
 It is important that the required libraries are installed and recognized.
 
-The output currently (as of 05.06.2025) in the console looks as follows:
-(The outputs are currently only intended for debugging and testing purposes and will be removed in the final 
-version)
+The output currently (as of 21.07.2025) in the console looks as follows:
+(Some important parts of the output are sent to the UI via SSE, so they are also displayed in the UI.)
 ```text
-Starting packet monitor thread
+Starting capture provider thread in mode: live
 Starting packet processor thread
-Aggregator: New call is temporarily saved: 'duLG15PLM6'
-200: SIP/2.0 200 Ok INVITE
+🟢 [SSE] New client connected
+Starting capture provider thread in mode: file
+Starting packet processor thread
+Aggregator: New call is temporarily saved: 'HfjUoRN6VP'
 ACK
-Aggregator: Buffer: CallInfo(start_time=datetime.datetime(2025, 6, 3, 13, 25, 20, 780962), end_time=None, participants=[ParticipantInfo(user='linphone2', ip_address='192.168.0.56', media_port=37923, mime_type='opus', server_ip='192.168.0.63', server_port=30194, ssrc=None), ParticipantInfo(user='linphpne1', ip_address=None, media_port=None, mime_type=None, server_ip='192.168.0.63', server_port=30204, ssrc=None)])
-Call ID 'duLG15PLM6' already exists in db
-SSRC '0x264b147f' has been updated for call ID 'duLG15PLM6' in db
-SSRC '0x65bc380a' has been updated for call ID 'duLG15PLM6' in db
-Speech intervals for SSRC 0x264b147f: [(1.4, 15.12)]
-Speech intervals for SSRC 0x264b147f: [(16.54, 22.6)]
-Speech intervals for SSRC 0x264b147f: [(23.74, 31.56), (32.56, 37.4)]
-Speech intervals for SSRC 0x65bc380a: [(50.16, 70.6)]
-Speech intervals for SSRC 0x65bc380a: [(95.22, 98.42)]
-Speech intervals for SSRC 0x264b147f: [(80.4, 100.48)]
-Speech intervals for SSRC 0x65bc380a: [(106.8, 107.66)]
+Aggregator Buffer: CallInfo(caller='Linphone2', start_time=datetime.datetime(2025, 6, 18, 16, 17, 23, 473656), end_time=None, participants=[ParticipantInfo(user='Linphone2', ip_address='192.168.0.55', media_port=44411, mime_type='opus', server_ip='192.168.0.63', server_port=30264, ssrc=None), ParticipantInfo(user='linphpne1', ip_address='192.168.0.52', media_port=53184, mime_type='opus', server_ip='192.168.0.63', server_port=30244, ssrc=None)], ack_received=True, stored=False)
+Call ID 'HfjUoRN6VP' has been stored in db
+SSRC '0xe39fcb21' has been updated for call ID 'HfjUoRN6VP' in db
+SSRC '0xd1a843d0' has been updated for call ID 'HfjUoRN6VP' in db
+Speech intervals for SSRC '0xd1a843d0': [(1.36, 22.56)]
+Speech intervals for SSRC '0xe39fcb21': [(30.46, 40.24)]
+Speech intervals for SSRC '0xe39fcb21': [(50.48, 56.78)]
 BYE
 200: SIP/2.0 200 Ok BYE
-[FLUSH] Final speech interval for SSRC 0x65bc380a: (109.86, 119.94)
-CallInfo(start_time=datetime.datetime(2025, 6, 3, 13, 25, 20, 780962), end_time=datetime.datetime(2025, 6, 3, 13, 27, 21, 260515), participants=[ParticipantInfo(user='linphone2', ip_address='192.168.0.56', media_port=37923, mime_type='opus', server_ip='192.168.0.63', server_port=30194, ssrc='0x264b147f'), ParticipantInfo(user='linphpne1', ip_address=None, media_port=None, mime_type=None, server_ip='192.168.0.63', server_port=30204, ssrc='0x65bc380a')])
-Call ID 'duLG15PLM6' has been updated in db
-Aggregator: Call ID 'duLG15PLM6' has been finished and stored in db
+[FLUSH] Final speech interval for SSRC '0xd1a843d0': [(49.92, 65.92)]
+CallInfo(caller='Linphone2', start_time=datetime.datetime(2025, 6, 18, 16, 17, 23, 473656), end_time=datetime.datetime(2025, 6, 18, 16, 18, 30, 381003), participants=[ParticipantInfo(user='Linphone2', ip_address='192.168.0.55', media_port=44411, mime_type='opus', server_ip='192.168.0.63', server_port=30264, ssrc='0xe39fcb21'), ParticipantInfo(user='linphpne1', ip_address='192.168.0.52', media_port=53184, mime_type='opus', server_ip='192.168.0.63', server_port=30244, ssrc='0xd1a843d0')], ack_received=True, stored=True)
+Call ID 'HfjUoRN6VP' has been updated in db
+Aggregator: Call ID 'HfjUoRN6VP' has been finished and stored in db
 ```
 
 The `app.db` database is created automatically if it does not exist and stores 
@@ -188,17 +188,20 @@ call times will be included in the next version.
 
 
 ## Known Issues
-Currently in preparation
+Some issues are known and will be fixed in the future.
 
-| Issue               | Description                                                                 | Status                 |
-|---------------------|-----------------------------------------------------------------------------|------------------------|
-| Code Duplication    | the file packet_processor.py contains some code duplication                 | in progress            |
-| Improve performance | Laptop hardware must have enough power for fast execution (min. 4 Core CPU) | planed for future Work |
+| Issue                           | Description                                                       | Status                   |
+|---------------------------------|-------------------------------------------------------------------|--------------------------|
+| admin access                    | Currently, the admin password is stored in plain text in the config.ini file, which can lead to security problems if the password is not customized via UI. | in the next version      |
+| Tshark (Pyshark package)        | The package Pyshark uses Tshark in the background and creates a process at sniff_continiously, which is needed to intercept live traffic, which is very difficult to terminate. Therefore, in the future, the live will no longer attempt to terminate but will continue to run in the background. Currently a live capture thread is started again after switching from file mode to live mode | in the next version      |
+| File processed not stored in db | It can happen that when processing files with the UI, the participants are not fully recognized and processed and are therefore not written to the database. This is why the call does not appear in the database afterwards. So far, the error is not reproducible and indicates a rare bug that only occurs in special situations. | Bug is not reproducible  |
 
 ## FAQ
 ### Why is the program so slow?
-The program is currently in development, and the performance will be improved in the next versions. <br>
-And the program processes a large number of packets, which can lead to high CPU utilization. <br>
+The program is designed to process VoIP calls in a captured PCAP file or live network traffic.
+To process the packets, the program needs to analyze each packet and reconstruct the audio streams.
+This can take some time, especially if the PCAP file is large or the network traffic is high.
+For the best performance, it is recommended to use a powerful computer with a fast CPU and enough RAM. <br>
 
 ### Why does the program only work with PCAP file or PCAPNG?
 The program is designed to process SIP and RTP packets, which are typically captured in PCAP or PCAPNG files. <br>
