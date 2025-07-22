@@ -146,7 +146,7 @@ def set_new_user(
     new_user = set_user(username, hashed_new_password)
 
     if new_user is None:
-        HTTPException(status_code=401, detail="User already exists")
+        raise HTTPException(status_code=401, detail="User already exists")
 
     if not new_user:
         return {"success": False, "message": "Failed to create user"}
@@ -171,7 +171,7 @@ def delete_user(
         raise HTTPException(status_code=404, detail="User not found")
 
     if not verify_password(password, existing_user.password):
-        raise HTTPException(status_code=401, detail="Invalid credentials")
+        raise HTTPException(status_code=401, detail="Incorrect password")
 
     if remove_user(username):
         return {"success": True, "message": "User deleted successfully"}
