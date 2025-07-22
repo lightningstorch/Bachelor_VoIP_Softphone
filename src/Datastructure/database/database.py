@@ -55,7 +55,7 @@ def store_call_start(call_id: str, call_info: CallInfo):
 
     try:
 
-        db_call = session.query(Calls).options(joinedload(Calls.participants)).filter_by(id=call_id).one_or_none()
+        db_call = session.query(Calls).options(joinedload(Calls.participants)).filter_by(call_id=call_id).one_or_none()
 
         if db_call and call_match(call_info, db_call):
                 print(f"Call ID '{call_id}' already exists and matches. Skipping insert.")
@@ -78,7 +78,7 @@ def store_call_start(call_id: str, call_info: CallInfo):
 
         else:
             new_call = Calls(
-                id=call_id,
+                call_id=call_id,
                 caller=call_info.caller,
                 start_time=call_info.start_time,
                 end_time=call_info.end_time
@@ -114,7 +114,7 @@ def store_call_end(call_id: str, call_info: CallInfo):
     session = get_session()
 
     try:
-        call = session.get(Calls, call_id)
+        call = session.query(Calls).filter_by(call_id=call_id).one_or_none()
 
         if call:
             try:
@@ -226,7 +226,7 @@ def get_call_by_id(call_id: str):
         call = (session.query(Calls)
                 .options(joinedload(Calls.participants))
                 .options(joinedload(Calls.talking_sections))
-                .filter_by(id=call_id)
+                .filter_by(call_id=call_id)
                 .one_or_none()
                 )
         return call
@@ -239,7 +239,6 @@ def get_call_by_id(call_id: str):
 #--------------------------------------------
 # Database operations for API
 #--------------------------------------------
-
 def get_call_history_lite():
     """
     Retrieve a list of call history entries with minimal details.
@@ -247,11 +246,11 @@ def get_call_history_lite():
     """
     session = get_session()
     try:
-        calls = session.query(Calls).order_by(Calls.start_time.desc()).all()
+        calls = session.query(Calls).order_by(Calls.start_time.asc()).all()
 
         call_history_lite = [
             CallHistoryLite(
-                call_id=str(call.id),
+                call_id=str(call.call_id),
                 caller=str(call.caller),
                 start_time=call.start_time.isoformat() if call.start_time else None
             )for call in calls
@@ -279,12 +278,12 @@ def get_call_for_api(call_id: str):
                      .joinedload(Participants.talking_sections),
                      joinedload(Calls.talking_sections)
                      )
-                 .filter(Calls.id == call_id)
+                 .filter(Calls.call_id == call_id)
                  .one_or_none()
                  )
 
         result = CallDetail(
-            call_id=str(call.id),
+            call_id=str(call.call_id),
             caller=str(call.caller) if call.caller else "N/A",
             start_time=call.start_time.isoformat() if call.start_time else "N/A",
             end_time=call.end_time.isoformat() if call.end_time else "N/A",
@@ -444,7 +443,6 @@ def remove_user(username: str) -> bool:
         return False
     finally:
         session.close()
-
 
 #--------------------------------------------
 # Database operations for API

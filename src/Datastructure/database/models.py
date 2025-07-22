@@ -5,7 +5,8 @@ Base = declarative_base()
 
 class Calls(Base):
     __tablename__ = 'calls'
-    id = Column(String, primary_key=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    call_id = Column(String, nullable=False, unique=True)
     caller = Column(String, nullable=False)
     start_time = Column(DateTime, nullable=False)
     end_time = Column(DateTime, nullable=True)
@@ -18,14 +19,15 @@ class Calls(Base):
 
     def __repr__(self):
         return (
-            f"Calls(id='{self.id}', caller='{self.caller}', start_time={self.start_time}, end_time={self.end_time}, "
+            f"Calls(id={self.id}, call_id='{self.call_id}', caller='{self.caller}', "
+            f"start_time={self.start_time}, end_time={self.end_time}, "
             f"participants=[{', '.join(repr(p) for p in self.participants)}])"
         )
 
 class Participants(Base):
     __tablename__ = 'participants'
     id = Column(Integer, primary_key=True)
-    call_id = Column(String, ForeignKey('calls.id'), nullable=False)
+    call_id = Column(String, ForeignKey('calls.call_id'), nullable=False)
     user = Column(String, nullable=False)
     ssrc = Column(String, nullable=True)
     ip_address = Column(String, nullable=False)
@@ -50,7 +52,7 @@ class TalkingSections(Base):
     __tablename__ = 'talking_sections'
 
     id = Column(Integer, primary_key=True)
-    call_id = Column(String, ForeignKey('calls.id'), nullable=False)
+    call_id = Column(String, ForeignKey('calls.call_id'), nullable=False)
     participant_id = Column(Integer, ForeignKey('participants.id'), nullable=True)
     type = Column(String, nullable=False)  # "speech" or "overlapping"
     section_start = Column(Float, nullable=False)

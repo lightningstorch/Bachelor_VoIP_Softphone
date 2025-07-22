@@ -36,7 +36,7 @@ class TestEndToEnd(unittest.TestCase):
         self.manager_call_context = ManagerCallContext(self.message_service, self.cleanup_queue)
         self.aggregator = Aggregator(self.message_service)
 
-        self.comp_tolerance = 4  # +- 2 seconds for comparison
+        self.comp_tolerance = 2  # +- 2 seconds for comparison
 
     def tearDown(self):
         # Shutdown call contexts
@@ -73,8 +73,8 @@ class TestEndToEnd(unittest.TestCase):
                 {"user": "Linphone2", "ip_address": "192.168.0.56"}
             ],
             "talking_sections": [
-                {"section_start": 22, "section_end": 57, "type": "speech"},
-                {"section_start": 65, "section_end": 80, "type": "speech"},
+                {"section_start": 22, "section_end": 58, "type": "speech"},
+                {"section_start": 66, "section_end": 80, "type": "speech"},
             ]
         }
 
@@ -213,5 +213,5 @@ class TestEndToEnd(unittest.TestCase):
                 any(abs(db_ts["section_start"] - expected_ts["section_start"]) < self.comp_tolerance and
                     abs(db_ts["section_end"] - expected_ts["section_end"]) < self.comp_tolerance
                     for db_ts in db_talking_sections),
-                f"Expected talking section {expected_ts} not found in database (with 5 second tolerance)"
+                f"Expected talking section {expected_ts} not found in database (with 2 second tolerance)"
             )
