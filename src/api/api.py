@@ -80,7 +80,8 @@ async def change_mode(
     """
     current_mode = get_program_mode()
     if mode == "live" and current_mode != "live":
-        switch_mode(mode, interface)
+        # because of the tshark process, it is buggy, because the live mode is running in the background
+        #switch_mode(mode, interface)
         return {"mode": "live", "using": interface}
 
     elif mode == "file":
@@ -177,6 +178,19 @@ def delete_user(
         return {"success": True, "message": "User deleted successfully"}
     else:
         raise HTTPException(status_code=500, detail="Failed to delete user")
+
+
+@app.get("/api/health-check")
+def health_check(
+        current_user: UiUser = Depends(verify_token)
+):
+    """
+    A simple health check endpoint to verify the API is running.
+    :param current_user: To ensure, the user is authenticated.
+    :return: A dictionary indicating the API is healthy.
+    """
+    return {"status": "healthy"}
+
 
 #===================================
 #         Login Actions
