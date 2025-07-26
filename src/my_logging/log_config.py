@@ -7,21 +7,18 @@ from config.config import (
     aggregator_log_level, call_context_log_level,
     database_log_level)
 
-"""
-This module configures the loggers for the application.
 
-Three loggers are set up:
-- app_logger: Logs general application events.
-- eventbus_logger: Logs events from the event bus, which is stored separately from app_logger.
-- aggregator_logger: Logs events from the aggregator component, also separately 
- from app_logger.
-
-All loggers use the same format ('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-and write to individual log files in the LOGS_DIR directory.
-"""
 #=======================================================
 #       Server-Sent Events (SSE) Logging Configuration
 #=======================================================
+"""
+This module provides functionality for broadcasting log events
+to a global asyncio event loop for Server-Sent Events (SSE).
+It allows for asynchronous logging of events, which can be consumed by
+a client via SSE.
+It includes a global asyncio event loop for SSE, an asyncio queue to hold events,
+and functions to set the event loop and broadcast log events.
+"""
 
 # the global asyncio event loop for Server-Sent Events (SSE)
 _sse_loop: asyncio.AbstractEventLoop | None = None
@@ -35,7 +32,9 @@ def set_event_loop(loop: asyncio.AbstractEventLoop):
     :param loop: The asyncio event loop to set.
     """
     global _sse_loop
-    _sse_loop = loop
+
+    if _sse_loop is None:
+        _sse_loop = loop
 
 async def _async_put(event_type: str, payload: str):
     """
@@ -58,7 +57,7 @@ def broadcast_log(event_type: str, payload: str):
     """
     if _sse_loop:
         _sse_loop.call_soon_threadsafe(
-            asyncio.create_task,
+            _sse_loop.create_task,
             _async_put(event_type, payload)
         )
     else:
@@ -71,6 +70,18 @@ def broadcast_log(event_type: str, payload: str):
 #=========================================
 #       Server - Logging Configuration
 #=========================================
+"""
+This module configures the loggers for the application.
+
+Three loggers are set up:
+- app_logger: Logs general application events.
+- eventbus_logger: Logs events from the event bus, which is stored separately from app_logger.
+- aggregator_logger: Logs events from the aggregator component, also separately 
+ from app_logger.
+
+All loggers use the same format ('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+and write to individual log files in the LOGS_DIR directory.
+"""
 
 def _get_log_level(level_str):
     try:

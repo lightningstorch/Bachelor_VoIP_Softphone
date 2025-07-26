@@ -186,15 +186,19 @@ The `app.db` database is created automatically if it does not exist and stores
 the most necessary data in the database to assign the RTP and SIP packets. The 
 call times will be included in the next version.
 
+### Info: 
+The live capture provider thread is started by default, and cannot be stopped, becuase of an issue with the Pyshark package. <br>
+The API is switching the mode of the ProgramStateManager and does not start a new live capture provider thread.
+But the live capture provider thread from the program start is still running in the background. <br>
+
 
 ## Known Issues
 Some issues are known and will be fixed in the future.
 
-| Issue                           | Description                                                       | Status                   |
-|---------------------------------|-------------------------------------------------------------------|--------------------------|
-| admin access                    | Currently, the admin password is stored in plain text in the config.ini file, which can lead to security problems if the password is not customized via UI. | in the next version      |
-| Tshark (Pyshark package)        | The package Pyshark uses Tshark in the background and creates a process at sniff_continiously, which is needed to intercept live traffic, which is very difficult to terminate. Therefore, in the future, the live will no longer attempt to terminate but will continue to run in the background. Currently a live capture thread is started again after switching from file mode to live mode | in the next version      |
-| File processed not stored in db | It can happen that when processing files with the UI, the participants are not fully recognized and processed and are therefore not written to the database. This is why the call does not appear in the database afterwards. So far, the error is not reproducible and indicates a rare bug that only occurs in special situations. | Bug is not reproducible  |
+| Issue                           | Description                                                                                                                                                                                                                                                                                                                                                | Status                   |
+|---------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|--------------------------|
+| admin access                    | Currently, the admin password is stored in plain text in the config.ini file, which can lead to security problems if the password is not customized via UI.                                                                                                                                                                                                | in the next version      |
+| Tshark (Pyshark package)        | The package Pyshark uses Tshark in the background and creates a process at sniff_continiously, which is needed to intercept live traffic, which is very difficult to terminate. Therefore, the change_mode api change only the ProgramStateManager and does not start a new live capture thread. This should be updated and changed to handle this besser. | in the next version      |
 
 ## FAQ
 ### Why is the program so slow?
