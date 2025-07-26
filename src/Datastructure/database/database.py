@@ -2,7 +2,7 @@ from narwhals import Boolean
 from sqlalchemy import create_engine, Engine, event
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker, joinedload
-from datastructure.database.models import Base, Calls, Participants, TalkingSections, ProgramMode, UiUser
+from datastructure.database.models import Base, Calls, Participants, TalkingSections, UiUser
 from datastructure.dataclass_models import CallInfo, TalkingInterval, EventType, CallHistoryLite, CallDetail, \
     Participant
 from my_logging.log_config import database_logger, broadcast_log, app_logger
@@ -315,43 +315,6 @@ def get_call_for_api(call_id: str):
     except Exception as e:
         database_logger.error(f"Error retrieving call data for call ID '{call_id}': {e}")
         return []
-    finally:
-        session.close()
-
-def get_program_mode():
-    """
-    Retrieve the current program mode from the database.
-    :return: The current mode as a string.
-    """
-    session = get_session()
-    try:
-        mode = session.query(ProgramMode).first()
-        if mode:
-            return mode.mode
-    except Exception as e:
-        database_logger.error(f"Error retrieving program mode: {e}")
-        return "live"
-    finally:
-        session.close()
-
-def set_program_mode(mode: str):
-    """
-    Set the current program mode in the database.
-    :param mode: The mode to set, either "live" or "file".
-    """
-    session = get_session()
-    try:
-        existing_mode = session.query(ProgramMode).first()
-        if existing_mode:
-            existing_mode.mode = mode
-        else:
-            new_mode = ProgramMode(mode=mode)
-            session.add(new_mode)
-        session.commit()
-        database_logger.debug(f"Program mode set to '{mode}' in db")
-    except Exception as e:
-        session.rollback()
-        database_logger.error(f"Error setting program mode to '{mode}': {e}")
     finally:
         session.close()
 

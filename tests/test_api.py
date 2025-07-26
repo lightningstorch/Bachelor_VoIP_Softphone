@@ -1,3 +1,4 @@
+import os
 import unittest
 import tempfile
 
@@ -109,9 +110,10 @@ class TestAPI(unittest.TestCase):
             mock_details.assert_called_once_with("not_exist")
 
     def test_change_mode_file_to_live(self):
-        with patch("src.api.api.get_program_mode", return_value="file") as mock_get_mode, \
-             patch("src.api.api.switch_mode") as mock_switch_mode:
+        with patch("src.api.api.ProgramStateManager") as mock_psm_cls:
             with patch("src.api.api.interface", "eth0"):
+                mock_psm = mock_psm_cls.return_value
+                mock_psm.get_mode.return_value = "file"
 
                 response = self.client.post(
                     "/api/mode",
@@ -119,62 +121,80 @@ class TestAPI(unittest.TestCase):
                 )
                 self.assertEqual(response.status_code, 200)
                 self.assertEqual(response.json(), {"mode": "live", "using": "eth0"})
-                mock_get_mode.assert_called_once()
-                mock_switch_mode.assert_called_once_with("live", "eth0")
+                mock_psm_cls.assert_called_once()
+                mock_psm.get_mode.assert_called_once()
+                mock_psm.switch_mode.assert_called_once_with("live", "eth0")
 
     def test_change_mode_live_to_live(self):
-        with patch("src.api.api.get_program_mode", return_value="live") as mock_get_mode, \
-             patch("src.api.api.switch_mode") as mock_switch_mode:
+        with patch("src.api.api.ProgramStateManager") as mock_psm_cls:
             with patch("src.api.api.interface", "eth0"):
+                mock_psm = mock_psm_cls.return_value
+                mock_psm.get_mode.return_value = "live"
 
                 response = self.client.post(
                     "/api/mode",
                     data={"mode": "live"}
                 )
+
                 self.assertEqual(response.status_code, 200)
                 self.assertEqual(response.json(), None)
-                mock_get_mode.assert_called_once()
-                mock_switch_mode.assert_not_called()
+                mock_psm_cls.assert_called_once()
+                mock_psm.get_mode.assert_called_once()
+                mock_psm.switch_mode.assert_not_called()
 
     def test_change_mode_live_to_file_with_file(self):
         temp_file_content = b"dummy pcap data"
         temp_file_path = "test.pcap"
 
-        with patch("src.api.api.get_program_mode", return_value="live") as mock_get_mode, \
-             patch("src.api.api.switch_mode") as mock_switch_mode:
+        with patch("src.api.api.ProgramStateManager") as mock_psm_cls:
+            with patch("src.api.api.switch_mode") as mock_switch_mode:
+                mock_psm = mock_psm_cls.return_value
+                mock_psm.get_mode.return_value = "live"
 
-            response = self.client.post(
-                "/api/mode",
-                data={"mode": "file"},
-                files={"file": (temp_file_path, BytesIO(temp_file_content))}
-            )
-            self.assertEqual(response.status_code, 200)
-            self.assertEqual(response.json()["mode"], "file")
-            mock_get_mode.assert_called_once()
-            self.assertEqual(mock_switch_mode.call_args[0][0], "file")
+                response = self.client.post(
+                    "/api/mode",
+                    data={"mode": "file"},
+                    files={"file": (temp_file_path, BytesIO(temp_file_content))}
+                )
+
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(response.json()["mode"], "file")
+                mock_psm_cls.assert_called_once()
+                mock_psm.get_mode.assert_not_called()
+
+                mode_arg, full_path = mock_switch_mode.call_args[0]
+
+                self.assertEqual(mode_arg, "file")
+                self.assertTrue(os.path.basename(full_path), temp_file_path)
 
     def test_change_mode_live_to_file_without_file(self):
-        with patch("src.api.api.get_program_mode", return_value="live") as mock_get_mode:
+        with patch("src.api.api.ProgramStateManager") as mock_psm_cls:
+            mock_psm = mock_psm_cls.return_value
+
             response = self.client.post(
                 "/api/mode",
                 data={"mode": "file"}
             )
             self.assertEqual(response.status_code, 400)
             self.assertEqual(response.json(), {"detail": "File is required for file mode"})
-            mock_get_mode.assert_called_once()
+            mock_psm.assert_not_called()
 
     def test_program_mode_endpoint(self):
-        with patch("src.api.api.get_program_mode", return_value="live") as mock_get_mode:
+        with patch("src.api.api.ProgramStateManager") as mock_psm_cls:
+            mock_psm = mock_psm_cls.return_value
+            mock_psm.get_mode.return_value = "live"
             response = self.client.get("/api/server-mode")
             self.assertEqual(response.status_code, 200)
             self.assertEqual(response.json(), {"mode": "live"})
-            mock_get_mode.assert_called_once()
+            self.assertEqual(mock_psm.get_mode.call_count, 2)
 
-        with patch("src.api.api.get_program_mode", return_value=None) as mock_get_mode:
+        with patch("src.api.api.ProgramStateManager") as mock_psm_cls:
+            mock_psm = mock_psm_cls.return_value
+            mock_psm.get_mode.return_value = None
             response = self.client.get("/api/server-mode")
             self.assertEqual(response.status_code, 404)
             self.assertEqual(response.json(), {"detail": "Program mode not set"})
-            mock_get_mode.assert_called_once()
+            mock_psm.get_mode.assert_called_once()
 
     def test_set_new_password(self):
         new_password = "new_secure_password"

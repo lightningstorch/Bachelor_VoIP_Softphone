@@ -8,7 +8,7 @@ from typing import List, Literal
 from sse_starlette.sse import EventSourceResponse
 from datastructure.database.models import UiUser
 from fastapi import FastAPI, HTTPException, Form, File, UploadFile, Depends, Request
-from datastructure.database.database import (get_call_history_lite, get_call_for_api, get_program_mode,
+from datastructure.database.database import (get_call_history_lite, get_call_for_api,
                                              get_user, change_password, set_user, remove_user)
 from datastructure.dataclass_models import CallHistoryLite, CallDetail
 from config.config import interface
@@ -16,6 +16,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 from main import switch_mode
 from utils.auth import authenticate, create_token, verify_token, verify_password, hash_password
 from my_logging.log_config import event_queue, set_event_loop, app_logger
+from utils.program_state_manager import ProgramStateManager
 
 
 #===================================
@@ -71,17 +72,18 @@ async def change_mode(
 ):
     """
     Changes the program mode to either live or file.
-    If the mode is set to "live", it will switch to live capture using the specified interface.
+    If the mode is set to "live", it changes the mode to live capture, because the live capture is already running.
     If the mode is set to "file", it will save the uploaded file and switch to file mode.
-    :param mode: The mode to switch to, either "live" or "file".
+    :param mode: The mode to switch to either "live" or "file".
     :param file: The file to upload if the mode is "file". This should be a PCAP or PCAPNG file.
     :param current_user: To ensure, the user is authenticated.
     :return: A dictionary indicating the new mode and the source being used.
     """
-    current_mode = get_program_mode()
-    if mode == "live" and current_mode != "live":
-        # because of the tshark process, it is buggy, because the live mode is running in the background
-        #switch_mode(mode, interface)
+    state_manager = ProgramStateManager()
+
+    if mode == "live" and state_manager.get_mode() != "live":
+        # the live capture is already running, because the live capture isn't stopped
+        state_manager.switch_mode("live", interface)
         return {"mode": "live", "using": interface}
 
     elif mode == "file":
@@ -100,13 +102,13 @@ async def change_mode(
 @app.get("/api/server-mode")
 def get_program_mode_endpoint(current_user: UiUser = Depends(verify_token)):
     """
-    Returns the current program mode (live or file).
+    Returns the current mode of the program.
     :param current_user: To ensure, the user is authenticated.
     """
-    mode = get_program_mode()
-    if not mode:
+    state_manager = ProgramStateManager()
+    if state_manager.get_mode() is None:
         raise HTTPException(status_code=404, detail="Program mode not set")
-    return {"mode": mode}
+    return {"mode": state_manager.get_mode()}
 
 
 @app.post("/api/change-password")

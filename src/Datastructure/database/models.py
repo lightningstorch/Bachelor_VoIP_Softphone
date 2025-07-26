@@ -73,11 +73,6 @@ class TalkingSections(Base):
         ),
     )
 
-class ProgramMode(Base):
-    __tablename__ = 'program_mode'
-    id = Column(Integer, primary_key=True)
-    mode = Column(String, nullable=False)
-
 class UiUser(Base):
     __tablename__ = 'ui_user'
     id = Column(Integer, primary_key=True)

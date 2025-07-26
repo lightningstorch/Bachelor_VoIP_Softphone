@@ -11,8 +11,9 @@ from data_collection.packet_processor import PacketProcessor
 from datastructure.aggregator import Aggregator
 from datastructure.async_message_service import AsyncMessageService
 from my_logging.log_config import app_logger, broadcast_log
-from datastructure.database.database import init_db, set_program_mode, get_user, set_user
+from datastructure.database.database import init_db, get_user, set_user
 from utils.auth import hash_password
+from utils.program_state_manager import ProgramStateManager
 
 #==================================
 #         Global Variables
@@ -50,6 +51,7 @@ def start_packet_processor():
     If it is already running, it does nothing.
     """
     global packet_processor
+
     if packet_processor is None or not packet_processor.is_alive():
         packet_processor = PacketProcessor(
             message_service,
@@ -67,13 +69,14 @@ def start_capture_provider(mode: str, source: str):
     :param source: The source of the packets, either an interface or a file path.
     """
     global capture_provider
-    if capture_provider and capture_provider.is_alive():
-        capture_provider.stop()
-        capture_provider.join()
-        _emptying_queue(queue_packets)
+
+    if capture_provider:
+        if capture_provider.is_alive():
+            capture_provider.stop()
+            capture_provider.join()
+            _emptying_queue(queue_packets)
 
         broadcast_log("system", f"Change Mode to {mode} and Source to {source}")
-
         print(f"Change Mode to {mode} and Source to {source}")
 
     capture_provider = CaptureProvider(
@@ -128,19 +131,13 @@ def switch_mode(mode: str, source: str):
     """
     global current_mode, current_source
 
-    if mode == current_mode and source == current_source:
-        app_logger.debug(f"Already in {mode} mode with source={source}, skipping start.")
+    state_manager = ProgramStateManager()
+    switch = state_manager.switch_mode(mode, source)
 
-        broadcast_log("Info", f"Already in {mode} mode with source={os.path.basename(source)}, skipping start. Please choose another mode or source.")
-
-        print(f"Already in {mode} mode with source={source}, skipping start.")
+    if not switch:
         return
 
-    set_program_mode(mode)
     start_capture_provider(mode, source)
-
-    current_mode = mode
-    current_source = source
 
 
 #==================================
@@ -154,6 +151,8 @@ def main():
     """
     app_logger.info("System is starting...")
 
+    state_manager = ProgramStateManager()
+
     # Initialize the aggregator and Database
     Aggregator(message_service)
     init_db()
@@ -165,10 +164,9 @@ def main():
     threading.Thread(target=start_api, daemon=True).start()
     time.sleep(2)  # wait for the API to start
 
-    mode = "live"
-    source = interface if mode == "live" else captured_file_path
-    set_program_mode(mode)
-    start_capture_provider(mode, source)
+    state_manager.set_mode("live")
+    state_manager.set_source(interface)
+    start_capture_provider(state_manager.get_mode(), state_manager.get_source())
 
     threading.Event().wait()
 

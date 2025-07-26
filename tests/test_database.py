@@ -5,7 +5,7 @@ import datetime
 from datastructure.database.database import (
     init_db, get_engine, store_call_start, store_call_end,
     store_ssrc, store_talking_sections, get_call_by_id, get_call_history_lite,
-    get_call_for_api, get_program_mode, set_program_mode, get_user,
+    get_call_for_api, get_user,
     set_user, change_password, remove_user
 )
 from datastructure.database.models import Base
@@ -77,7 +77,7 @@ class TestDatabase:
         call = get_call_by_id(call_id)
 
         assert call is not None
-        assert call.id == call_id
+        assert call.call_id == call_id
         assert call.caller == sample_call_info.caller
         assert call.start_time == sample_call_info.start_time
         assert call.end_time is None
@@ -103,7 +103,7 @@ class TestDatabase:
         call = get_call_by_id(call_id)
 
         assert call is not None
-        assert call.id == call_id
+        assert call.call_id == call_id
         assert call.start_time == new_start_time
         assert len(call.participants) == len(sample_call_info.participants)
 
@@ -129,7 +129,7 @@ class TestDatabase:
         call = get_call_by_id(call_id)
 
         assert call is not None
-        assert call.id == call_id
+        assert call.call_id == call_id
         assert call.end_time == end_time
 
     def test_store_call_end_without_store_call(self, sample_call_info):
@@ -233,23 +233,6 @@ class TestDatabase:
         remove_user(username)
         user = get_user(username)
         assert user is None
-
-    def test_program_mode(self):
-        """Test getting and setting program mode."""
-        # Set program mode
-        mode = "test_mode"
-        set_program_mode(mode)
-
-        # Get program mode
-        program_mode = get_program_mode()
-        assert program_mode is not None
-        assert program_mode == mode
-
-        # Change program mode
-        new_mode = "new_test_mode"
-        set_program_mode(new_mode)
-        program_mode = get_program_mode()
-        assert program_mode == new_mode
 
     def test_get_call_history_lite(self, sample_call_info):
         """Test getting call history in lite format."""
