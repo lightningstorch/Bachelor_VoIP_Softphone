@@ -10,6 +10,8 @@ and generate call statistics.*
 2. [Project Status](#project-status)
 3. [Prerequisites and Technologies](#prerequisites-and-technologies)
 4. [Installation](#installation)
+5. [Config.ini](#configini)
+6. [The UI](#the-ui)
 5. [Usage](#usage)
 7. [Known Issues](#known-issues)
 8. [FAQ](#faq)
@@ -29,6 +31,9 @@ A web interface for visualizing the call statistics is intended to display this 
 detail and provide an overview. <br>
 The program was developed as a bachelor's thesis in the Computer Science degree
 at the Johannes Kepler University Linz (Upperaustria, Austria). <br>
+
+The Program is designed to run on linux as a docker container, or on Windows as a normal program.
+In the Installation section, you can find the instructions on how to install the program and the required libraries. <br>
 
 
 ## Project Status
@@ -68,8 +73,17 @@ The program also requires a running RabbitMQ server, which can be installed via 
 A [Docker Compose File](docker-compose.yml) is provided in the repository, which <br>
 can be used to build a Docker image for RabbitMQ.
 
+The Program uses also the tshark command line tool from Wireshark to capture live network traffic. <br>
+Tshark is a network protocol analyzer that can capture and display network packets in real-time.
+It is used to capture SIP and RTP packets from the network interface and process them in the program.
+You should have Wireshark installed on your system to use the program. <br>
+If you use the Dockerfile to create a Docker image, the tshark command line tool will be installed automatically with the Dockerfile. <br>
+Important: The tshark command line tool us not integrated in the program. The program us calling the 
+tshark command line tool via a subprocess, so you need to have tshark installed on your system. <br>
+You should download Wireshark from the [official website](https://www.wireshark.org) separately to use the program. <br>
 
-## Installation
+
+## Installation Windows
 
 ### Clone the repository
 To clone the repository, you can use the following command in your terminal or command prompt:
@@ -122,11 +136,6 @@ The user data and password must be inserted in the `config.ini` file.
 Also, the server IP and port must be specified, <br>
 so that the program can connect to the RabbitMQ server. <br>
 
-### Config.ini
-The config.ini file is used to store the configuration settings for the program. <br>
-You can find there some specific settings that need to be adjusted before running the program. <br>
-The ServerIP of the SIP / RTP Server must be specified, to identify the Server in the Network protocols. <br>
-Also you need to specify the Network Interface, which is used to capture the packets. (for example: Ethernet, eps0, ...) <br>
 
 
 ### Running the Program
@@ -141,6 +150,38 @@ or
 python3 main.py
 ```
 
+## Installation Linux
+
+### Clone the repository
+To clone the repository, you can use the following command in your terminal or command prompt:
+```bash
+git clone https://github.com/lightningstorch/Bachelor_VoIP_Softphone.git
+```
+To clone the Repository, you need a Github account. If you do not have one, you can create <br>
+one for free at [github.com](https://github.com/)
+
+### Install Docker
+The program for linux is designed to run in a Docker container, so you need to have Docker installed on your system. <br>
+You can install Docker by following the instructions on the [official website](https://www.docker.com/products/docker-desktop). <br>
+
+### Install the environment
+The Dockerfile and the docker-compose.yml provide all necessary scripts to install all requirements 
+and make adjustments to the Docker container.
+
+Therefore, the following command only needs to be executed in the docker-compose.yml folder on the command line:
+```bash
+docker-compose up --build
+```
+Then the container is built and started and can be accessed directly with the UI 
+(adjust server API URL in the UI .env file if necessary!)
+
+## Config.ini
+The config.ini file is used to store the configuration settings for the program. <br>
+You can find there some specific settings that need to be adjusted before running the program. <br>
+The ServerIP of the SIP / RTP Server must be specified, to identify the Server in the Network protocols. <br>
+Also you need to specify the Network Interface, which is used to capture the packets (windows and linux separately). 
+(for example: Ethernet, eps0, ...) <br>
+
 ### The UI
 The first version of the UI is now available and can be used to visualize the data processed by the program. <br>
 It is a web-based interface that allows you to view the call statistics, participants, and voice segments. <br>
@@ -153,9 +194,12 @@ The program can be used to process SIP and RTP packets from a PCAP file or live 
 To use the program, you need the UI project, which is a web-based interface that allows you to visualize 
 the data processed by the program and also to process live network traffic or PCAP files.
 
+For Windows user only:
+```text
 Program can be started with the command `python main.py` or in the IDE, but the 
 Docker container RabbitMQ must be running so that the messages can be processed.
 It is important that the required libraries are installed and recognized.
+```
 
 The output currently (as of 21.07.2025) in the console looks as follows:
 (Some important parts of the output are sent to the UI via SSE, so they are also displayed in the UI.)
@@ -232,6 +276,7 @@ It will be possible, when the encryption keys are available, to decrypt the pack
 But this is not implemented yet. <br>
 
 ## License
-This program is developed to use it as a closed Source. It could be that it will be open source in the future, but <br> 
-currently it is not planned. <br>
+Because the program tshark is not integrated into my program but only uses the command line, the license 
+of this program remains unchanged and can be placed under any license the developer (Manuel Spiss) wishes in the future.
 
+The license of the program will be selected in the future and linked here.
