@@ -13,6 +13,9 @@ class TestEndToEnd(unittest.TestCase):
     As the tests take some time to run, it is recommended to run the tests separately
     and not together. It can happen that when the entire class is executed, the tests
     get stuck in an endless loop.
+
+    Information: If the tests fail, check if in the tests/data isn't a temp file.
+    if it is, delete it and run the tests again.
     """
 
     def setUp(self):

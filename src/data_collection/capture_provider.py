@@ -8,6 +8,7 @@ import time
 
 from threading import Event, Thread
 from my_logging.log_config import app_logger
+from test_buffer import buffer
 from utils.packet_parsing import handle_duplicates
 from utils.validation import validate_file
 
@@ -23,17 +24,13 @@ class CaptureProvider(Thread):
         self.source_type = source_type
         self.source_value = source_value
         self.queue = queue
-        self.count = 10
+        self.count = 10 # Number of packets to process before sleeping (file capture)
 
     def run(self):
         app_logger.debug(f"Starting capture provider thread in mode: {self.source_type}")
         print(f"Starting capture provider thread in mode: {self.source_type}")
 
         display_filter = f'(sip or rtp)'
-
-        # this is needed for a file processing and sometimes also for live capture on windows.txt
-        self.loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(self.loop)
 
         if self.source_type == 'live':
             self.live_capture(display_filter)
@@ -42,38 +39,87 @@ class CaptureProvider(Thread):
 
     def live_capture(self, display_filter):
         """
-        Starts a live capture on the specified source interface.
+        Processes a live capture using TShark.
+        This method captures packets from a live network interface using TShark,
+        applies a display filter, and processes the output in real-time.
+        The Tshark command output is parsed with a special focus on handling dupplicates
+        in the JSON output and pushing the parsed packets into a queue for further processing.
         :param display_filter: The display filter to apply to the captured packets.
         """
         app_logger.debug(f"Live capture on {self.source_value}")
 
+        tshark_cmd = [
+            'tshark',
+            '-i', self.source_value,
+            '-Y', display_filter,
+            '-T', 'json',
+            '-l'
+        ]
+
+        subproc = None
+
         try:
-            self.capture = pyshark.LiveCapture(
-                interface=self.source_value,
-                display_filter=display_filter,
-                use_json=True,
-                use_ek=True,
+            subproc = subprocess.Popen(
+                tshark_cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                bufsize=1  # Line-buffered output
             )
 
-            while not self._stop_event.is_set():
-                try:
-                    #packets = self.capture.sniff_continuously()
-                    for packet in self.capture.sniff_continuously():
-                        if self._stop_event.is_set():
-                            break
 
-                        self.queue.put(packet)
+            buffer = "" # Buffer to accumulate JSON objects
+            brace_level = 0 # To track the level of nested braces
 
-                except Exception as e:
-                    app_logger.error(f"Problem occurred while live capture: {e}")
+            # Read each line from the output of TShark and process it
+            for line in subproc.stdout:
+
+                if self._stop_event.is_set():
+                    app_logger.debug("Stopping live capture due to stop event.")
+                    break
+
+                # check the nested braces level to determine if we have a complete JSON object
+                for ch in line:
+                    buffer += ch
+                    if ch == "{":
+                        brace_level += 1
+                    elif ch == "}":
+                        brace_level -= 1
+
+                # If we have a complete JSON object (brace_level is 0), process the buffer
+                if brace_level == 0 and buffer.strip():
+                    text = buffer.strip().rstrip(",")
+                    try:
+                        # parse the accumulated JSON text
+                        pkt = json.loads(text, object_pairs_hook=handle_duplicates)
+                        self.queue.put(pkt)
+
+                    except json.JSONDecodeError as e:
+                        app_logger.error(f"Error occured by parsing Json: {e}")
+
+                    buffer = ""
+
+        except KeyboardInterrupt:
+            app_logger.info("Error occurred during live capture, stopping...")
+
         finally:
-            self.capture.close()
-            self.capture = None
+            if subproc and subproc.poll() is None:
+                app_logger.debug("Terminating TShark subprocess.")
+                subproc.terminate()
+                try:
+                    subproc.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    app_logger.error("TShark process did not terminate in time, force killing it.")
+                    subproc.kill()
+                    subproc.wait()
 
     def file_capture(self, display_filter):
         """
-        Starts a file capture on the specified file path.
+        Processes a file capture using TShark.
         :param display_filter: The display filter to apply to the captured packets.
+        :raises: Exception if the file is invalid or if TShark fails to process it.
+        :raises: JSONDecodeError if the output from TShark is not valid JSON.
+        :raises: FileNotFoundError if the specified file does not exist.
         """
         if not validate_file(self.source_value):
             app_logger.error(f"Terminate thread because of invalid file path or file extension {self.source_value}")
@@ -89,7 +135,6 @@ class CaptureProvider(Thread):
         ]
 
         try:
-
             output = subprocess.check_output(tshark_cmd, text=True)
             packets = json.loads(output, object_pairs_hook=handle_duplicates)
 
@@ -100,16 +145,19 @@ class CaptureProvider(Thread):
                     break
 
                 self.queue.put(packet)
+                # a sleep mechanism to control the flow of packet processing
+                # this is to avoid overwhelming the queue and allow other threads to process
+                # packets in the queue (otherwise the program didn't work correctly)
                 count -= 1
                 if count <= 0:
                     time.sleep(0.001)  # Small delay to allow other threads to process
                     count = self.count
 
         except subprocess.CalledProcessError as e:
-            app_logger.error(f"❌ Error by TShark: {e}")
+            app_logger.error(f"Error by TShark: {e}")
 
         except json.JSONDecodeError as e:
-            app_logger.error(f"❌ Invalid JSON output: {e}")
+            app_logger.error(f"Invalid JSON output: {e}")
 
         finally:
             if os.path.exists(self.source_value) and os.path.isfile(self.source_value):

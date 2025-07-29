@@ -1,5 +1,7 @@
+import io
 import json
 import shutil
+import threading
 import time
 import unittest
 from pathlib import Path
@@ -16,16 +18,16 @@ class TestCaptureProvider(unittest.TestCase):
     @staticmethod
     def create_mock_packet():
         """ Create mock packets for testing."""
-        return json.dumps([
+        return [
             {"_source": {"layers": {"sip": {"sip.Method": "INVITE"}}}},
             {"_source": {"layers": {"sip": {"sip.Method": "ACK"}}}},
             {"_source": {"layers": {"rtp": {"rtp.ssrc": "0x12345678"}}}},
             {"_source": {"layers": {"rtp": {"rtp.ssrc": "0xabcdefgh"}}}},
-        ])
+        ]
 
     def validate_packet(self):
         """ Validate the packets in the queue."""
-        self.assertEqual(self.queue.qsize(), 4)
+        self.assertEqual(4, self.queue.qsize())
 
         packets = list(self.queue.queue)
 
@@ -45,53 +47,46 @@ class TestCaptureProvider(unittest.TestCase):
         mock_exists.return_value = True
         mock_is_file.return_value = True
 
-        mock_json_output = self.create_mock_packet()
+        # Mock the output of TShark command
+        mock_json_output = json.dumps(self.create_mock_packet())
         mock_check_output.return_value = mock_json_output
 
+        # Create an instance of CaptureProvider with file capture
         capture_provider = CaptureProvider("file", "dummy.pcap", self.queue)
         capture_provider.file_capture("(sip or rtp)")
 
+        # Validate the packets in the queue
         self.validate_packet()
 
-    @patch("data_collection.capture_provider.pyshark.LiveCapture")
-    def test_live_capture(self, mock_live_capture):
+    @patch("data_collection.capture_provider.subprocess.Popen")
+    def test_live_capture(self, mock_popen):
         """ Test the live capture functionality of CaptureProvider."""
         mock_packets = self.create_mock_packet()
+        lines = [json.dumps(pkt) + "\n" for pkt in mock_packets]
 
-        # Mock the sniff_continuously generator (it needs a generator to run)
-        def sniff_gen():
-            for packet in mock_packets:
-                yield packet
-            capture_provider._stop_event.set()
-
-        # Mock the LiveCapture to return a generator of packets
-        mock_capture = mock_live_capture.return_value
-        mock_capture.sniff_continuously.return_value = sniff_gen()
+        # Mock the subprocess.Popen to simulate TShark output
+        mock_proc = MagicMock()
+        mock_proc.stdout = iter(lines)
+        # Mock the poll method to simulate the process being alive until all lines are read
+        mock_proc.poll.side_effect = [None] * len(lines) + [1]
+        mock_proc.terminate = MagicMock()
+        mock_proc.wait = MagicMock()
+        mock_popen.return_value = mock_proc
 
         # Create an instance of CaptureProvider with live capture
-        capture_provider = CaptureProvider("live", "eth0", self.queue)
-        capture_provider._stop_event.clear()
-        capture_provider.live_capture("(sip or rtp)")
+        cp = CaptureProvider("live", "eth0", self.queue)
+        cp.live_capture("(sip or rtp)")
 
-        # Validate the packets captured
+        # validate the packets in the queue
         self.validate_packet()
 
-    @patch("asyncio.new_event_loop")
-    @patch("asyncio.set_event_loop")
     @patch.object(CaptureProvider, "file_capture")
     @patch.object(CaptureProvider, "live_capture")
-    def test_run_method(self, mock_live_capture, mock_file_capture, mock_set_event_loop, mock_new_event_loop):
+    def test_run_method(self, mock_live_capture, mock_file_capture):
         """ Test the run method of CaptureProvider."""
-        mock_loop = MagicMock()
-        mock_new_event_loop.return_value = mock_loop
-
         # start the live capture
         live_capture = CaptureProvider("live", "eth0", self.queue)
         live_capture.run()
-
-        # check if the event loop is created and set
-        mock_new_event_loop.assert_called()
-        mock_set_event_loop.assert_called_with(mock_loop)
 
         # check if the live capture method was called
         mock_live_capture.assert_called_once_with("(sip or rtp)")
@@ -108,7 +103,6 @@ class TestCaptureProvider(unittest.TestCase):
         # check if the file capture method was called
         mock_file_capture.assert_called_once_with("(sip or rtp)")
         mock_live_capture.assert_not_called()
-
 
 class TestCaptureIntegration(unittest.TestCase):
     def setUp(self):
