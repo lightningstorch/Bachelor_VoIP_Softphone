@@ -50,7 +50,6 @@ This program uses additional libraries and applications that are not supplied wi
 These must be installed separately in the respective compatible version.
 
 - Python >= 3.13
-- pyshark = 0.6
 - cachetools = 5.5.2
 - SQLAlchemy = 2.0.40
 - aio-pika = 9.5.5
@@ -99,7 +98,6 @@ pip install -r requirements.txt
 ```
 or if an error occurs, you can install the libraries individually:
 ```bash
-pip install pyshark
 pip install cachetools
 pip install SQLAlchemy
 pip install aio-pika
