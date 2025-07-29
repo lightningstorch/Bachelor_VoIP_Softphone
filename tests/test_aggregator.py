@@ -188,7 +188,8 @@ class TestAggregator(unittest.TestCase):
 
     @patch("asyncio.create_task")
     @patch("datastructure.aggregator.store_talking_sections")
-    def test_aggregator_talking_section(self, mock_store_talking_sections, mock_create_task):
+    @patch.object(Aggregator, "_store")
+    def test_aggregator_talking_section(self, mock_store, mock_store_talking_sections, mock_create_task):
         """ Test the aggregator_talking_section method to ensure it correctly stores talking sections """
         self.aggregator._call_buffer["call_123"] = CallInfo(caller="test_caller")
         self.aggregator._call_buffer["call_123"].stored = True
@@ -216,6 +217,7 @@ class TestAggregator(unittest.TestCase):
         self.aggregator.aggregator_talking_section(message)
         mock_create_task.assert_called_once_with(message.ack())
 
+        mock_store.assert_not_called()
         mock_store_talking_sections.assert_called_once_with(talking_interval)
 
         arg_talking_interval = mock_store_talking_sections.call_args[0][0]
@@ -225,6 +227,21 @@ class TestAggregator(unittest.TestCase):
         self.assertEqual(arg_talking_interval.ssrc, "0x12345678")
         self.assertEqual(arg_talking_interval.start, 0)
         self.assertEqual(arg_talking_interval.end, 10)
+
+
+        # buffer details aren't stored yet
+        mock_store_talking_sections.reset_mock()
+        mock_store.reset_mock()
+        mock_create_task.reset_mock()
+
+        self.aggregator._call_buffer["call_123"].stored = False
+
+        self.aggregator.aggregator_talking_section(message)
+
+        mock_create_task.assert_called_once_with(message.ack())
+        mock_store.assert_called_once_with("call_123")
+
+        mock_store_talking_sections.assert_called_once_with(talking_interval)
 
 
     def test_get_participant(self):

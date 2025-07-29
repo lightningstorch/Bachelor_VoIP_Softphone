@@ -65,7 +65,7 @@ These must be installed separately in the respective compatible version.
 Licenses of the Library's: [Link](THIRD_PARTY_LICENSES.md)
 
 The program also requires a running RabbitMQ server, which can be installed via Docker. <br>
-A [Docker Compose File](rabbitmq-docker/docker-compose.yml) is provided in the repository, which <br>
+A [Docker Compose File](docker-compose.yml) is provided in the repository, which <br>
 can be used to build a Docker image for RabbitMQ.
 
 

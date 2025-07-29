@@ -2,6 +2,8 @@ import configparser
 import os
 from pathlib import Path
 
+from utils.platform_information import get_platform_information
+
 """
 This module reads the configuration from the 'config.ini' file and
 provides important parameters.
@@ -23,7 +25,10 @@ else:
     base_dir = Path(__file__).resolve().parents[2]
 
 server_ip = _config['network']['server_ip']
-interface = _config['network']['interface']
+if get_platform_information() == 'Linux':
+    interface = _config['network']['interface_linux']
+else:
+    interface = _config['network']['interface_windows']
 
 database_type = _config['database']['type']
 database_connection = os.environ.get(
@@ -38,11 +43,14 @@ if _cf.get('path', '').lower() == 'relative' and not fp.is_absolute():
 else:
     captured_file_path = fp.resolve()
 
-
 # ===========================================
 #           RabbitMQ Message Service
 # ===========================================
-rabbitmq_host = _config['rabbitmq']['host']
+if get_platform_information() == 'Linux':
+    rabbitmq_host = _config['rabbitmq']['host_linux']
+else:
+    rabbitmq_host = _config['rabbitmq']['host_windows']
+
 rabbitmq_port = int(_config['rabbitmq']['port'])
 rabbitmq_user = _config['rabbitmq']['user']
 rabbitmq_password = _config['rabbitmq']['password']

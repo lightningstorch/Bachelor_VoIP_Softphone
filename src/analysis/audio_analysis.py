@@ -7,12 +7,13 @@ from scipy.signal import butter, sosfilt
 from config.config import bandpass_min_frequency, bandpass_max_frequency, bandpass_order, audio_min_speech_duration, \
     audio_gap_threshold, audio_allowed_gaps, vad_mode, noise_multiplier, noise_percentile, default_audio_sample_rate
 from my_logging.log_config import call_context_logger
+from utils.packet_parsing import get_time_stamp_epoch, get_rtp_payload, get_rtp_timestamp
 
 # Semantic Versioning for AudioAnalysis (MAJOR.MINOR.PATCH):
 #   MAJOR version when you make incompatible API changes or large new features
 #   MINOR version when you add functionality in a backwards-compatible manner or make medium enhancements
 #   PATCH version when you make backwards-compatible bug fixes or minor tweaks
-__version__ = "1.1.2"
+__version__ = "2.0.0"
 
 class AudioAnalysis:
     """
@@ -93,14 +94,22 @@ class AudioAnalysis:
 
     def analyze_audio(self, packet) -> list[tuple[float, float]]:
 
-        packets_sorted = sorted(packet, key=lambda p: p.sniff_timestamp)
+        packets_sorted = sorted(packet, key=lambda p: get_time_stamp_epoch(p) or 0.0)
 
         for pkt in packets_sorted:
 
-            if len(pkt.rtp.payload.binary_value) < 12:
+            rtp_payload = get_rtp_payload(pkt)
+            hex_str = rtp_payload.replace(':', '')
+
+            try:
+                payload = bytes.fromhex(hex_str)
+            except ValueError as e:
                 continue
 
-            rtp_timestamp = int(pkt.rtp.timestamp)
+            if len(payload) < 12:
+                continue
+
+            rtp_timestamp = get_rtp_timestamp(pkt)
 
             if self.first_timestamp is None:
                 self.first_timestamp = rtp_timestamp
@@ -113,7 +122,7 @@ class AudioAnalysis:
                 self.all_intervals.extend(interval)
 
             # Process the Opus payload
-            self._process_opus_payload(pkt.rtp.payload.binary_value, delta_ts)
+            self._process_opus_payload(payload, delta_ts)
 
         merged = self._merge_short_gaps(sorted(self.all_intervals, key=lambda x: x[0]))
 

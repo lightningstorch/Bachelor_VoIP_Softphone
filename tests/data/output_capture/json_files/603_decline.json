@@ -1,0 +1,166 @@
+{
+  "_index": "packets-2025-04-03",
+  "_type": "doc",
+  "_score": null,
+  "_source": {
+    "layers": {
+      "frame": {
+        "frame.section_number": "1",
+        "frame.interface_id": "0",
+        "frame.interface_id_tree": {
+          "frame.interface_name": "\\Device\\NPF_{08F533A9-EC1D-49E9-AA46-8E73432E0A35}",
+          "frame.interface_description": "Ethernet"
+        },
+        "frame.encap_type": "1",
+        "frame.time": "Apr  3, 2025 20:29:02.676060000 MitteleuropÃ¤ische Sommerzeit",
+        "frame.time_utc": "Apr  3, 2025 18:29:02.676060000 UTC",
+        "frame.time_epoch": "1743704942.676060000",
+        "frame.offset_shift": "0.000000000",
+        "frame.time_delta": "0.000000000",
+        "frame.time_delta_displayed": "0.000000000",
+        "frame.time_relative": "0.000000000",
+        "frame.number": "1",
+        "frame.len": "548",
+        "frame.cap_len": "548",
+        "frame.marked": "0",
+        "frame.ignored": "0",
+        "frame.protocols": "eth:ethertype:ip:udp:sip"
+      },
+      "eth": {
+        "eth.dst": "00:a0:98:5a:d9:d2",
+        "eth.dst_tree": {
+          "eth.dst_resolved": "NetApp_5a:d9:d2",
+          "eth.dst.oui": "41112",
+          "eth.dst.oui_resolved": "NetApp",
+          "eth.dst.lg": "0",
+          "eth.dst.ig": "0",
+          "eth.addr": "00:a0:98:5a:d9:d2",
+          "eth.addr_resolved": "NetApp_5a:d9:d2",
+          "eth.addr.oui": "41112",
+          "eth.addr.oui_resolved": "NetApp",
+          "eth.lg": "0",
+          "eth.ig": "0"
+        },
+        "eth.src": "9a:2a:a3:d5:55:b8",
+        "eth.src_tree": {
+          "eth.src_resolved": "9a:2a:a3:d5:55:b8",
+          "eth.src.oui": "10103459",
+          "eth.src.lg": "1",
+          "eth.src.ig": "0",
+          "eth.addr": "9a:2a:a3:d5:55:b8",
+          "eth.addr_resolved": "9a:2a:a3:d5:55:b8",
+          "eth.addr.oui": "10103459",
+          "eth.lg": "1",
+          "eth.ig": "0"
+        },
+        "eth.type": "0x0800",
+        "eth.stream": "0"
+      },
+      "ip": {
+        "ip.version": "4",
+        "ip.hdr_len": "20",
+        "ip.dsfield": "0x68",
+        "ip.dsfield_tree": {
+          "ip.dsfield.dscp": "26",
+          "ip.dsfield.ecn": "0"
+        },
+        "ip.len": "534",
+        "ip.id": "0x6978",
+        "ip.flags": "0x02",
+        "ip.flags_tree": {
+          "ip.flags.rb": "0",
+          "ip.flags.df": "1",
+          "ip.flags.mf": "0"
+        },
+        "ip.frag_offset": "0",
+        "ip.ttl": "64",
+        "ip.proto": "17",
+        "ip.checksum": "0x4d30",
+        "ip.checksum.status": "2",
+        "ip.src": "192.168.0.55",
+        "ip.addr": "192.168.0.55",
+        "ip.src_host": "192.168.0.55",
+        "ip.host": "192.168.0.55",
+        "ip.dst": "192.168.0.63",
+        "ip.addr": "192.168.0.63",
+        "ip.dst_host": "192.168.0.63",
+        "ip.host": "192.168.0.63",
+        "ip.stream": "0"
+      },
+      "udp": {
+        "udp.srcport": "58311",
+        "udp.dstport": "5060",
+        "udp.port": "58311",
+        "udp.port": "5060",
+        "udp.length": "514",
+        "udp.checksum": "0x8223",
+        "udp.checksum.status": "2",
+        "udp.stream": "0",
+        "udp.stream.pnum": "1",
+        "Timestamps": {
+          "udp.time_relative": "0.000000000",
+          "udp.time_delta": "0.000000000"
+        },
+        "udp.payload": "53:49:50:2f:32:2e:30:20:36:30:33:20:44:65:63:6c:69:6e:65:0d:0a:56:69:61:3a:20:53:49:50:2f:32:2e:30:2f:55:44:50:20:31:39:32:2e:31:36:38:2e:30:2e:36:33:3b:62:72:61:6e:63:68:3d:7a:39:68:47:34:62:4b:66:64:66:63:2e:66:31:34:30:63:38:35:33:64:33:36:64:62:34:36:62:63:65:61:30:36:34:63:65:38:66:66:39:32:38:62:35:2e:30:0d:0a:56:69:61:3a:20:53:49:50:2f:32:2e:30:2f:55:44:50:20:31:39:32:2e:31:36:38:2e:30:2e:35:32:3a:34:34:30:31:30:3b:72:65:63:65:69:76:65:64:3d:31:39:32:2e:31:36:38:2e:30:2e:35:32:3b:62:72:61:6e:63:68:3d:7a:39:68:47:34:62:4b:2e:77:68:7a:78:6c:61:58:74:50:3b:72:70:6f:72:74:3d:34:34:30:31:30:0d:0a:46:72:6f:6d:3a:20:22:52:54:50:31:22:20:3c:73:69:70:3a:6c:69:6e:70:68:70:6e:65:31:40:31:39:32:2e:31:36:38:2e:30:2e:36:33:3e:3b:74:61:67:3d:4e:6c:44:55:79:2d:4f:38:74:0d:0a:54:6f:3a:20:22:4c:69:6e:70:68:6f:6e:65:32:22:20:3c:73:69:70:3a:6c:69:6e:70:68:6f:6e:65:32:40:31:39:32:2e:31:36:38:2e:30:2e:36:33:3e:3b:74:61:67:3d:50:63:44:5a:43:74:42:0d:0a:43:61:6c:6c:2d:49:44:3a:20:53:68:6b:44:64:6e:64:49:39:54:0d:0a:43:53:65:71:3a:20:32:30:20:49:4e:56:49:54:45:0d:0a:55:73:65:72:2d:41:67:65:6e:74:3a:20:4c:69:6e:70:68:6f:6e:65:41:6e:64:72:6f:69:64:2f:36:2e:30:2e:32:20:28:47:61:6c:61:78:79:20:53:39:2b:20:76:6f:6e:20:4d:61:6e:75:65:6c:29:20:4c:69:6e:70:68:6f:6e:65:53:44:4b:2f:35:2e:34:2e:35:20:28:74:61:67:73:2f:35:2e:34:2e:35:5e:30:29:0d:0a:53:75:70:70:6f:72:74:65:64:3a:20:72:65:70:6c:61:63:65:73:2c:20:6f:75:74:62:6f:75:6e:64:2c:20:67:72:75:75:2c:20:70:61:74:68:2c:20:72:65:63:6f:72:64:2d:61:77:61:72:65:0d:0a:0d:0a"
+      },
+      "sip": {
+        "sip.Status-Line": "SIP/2.0 603 Decline",
+        "sip.Status-Line_tree": {
+          "sip.Status-Code": "603",
+          "sip.resend": "0"
+        },
+        "sip.msg_hdr": "Via: SIP/2.0/UDP 192.168.0.63;branch=z9hG4bKfdfc.f140c853d36db46bcea064ce8ff928b5.0\r\nVia: SIP/2.0/UDP 192.168.0.52:44010;received=192.168.0.52;branch=z9hG4bK.whzxlaXtP;rport=44010\r\nFrom: \"RTP1\" <sip:linphpne1@192.168.0.63>;tag=NlDUy-O8t\r\nTo: \"Linphone2\" <sip:linphone2@192.168.0.63>;tag=PcDZCtB\r\nCall-ID: ShkDdndI9T\r\nCSeq: 20 INVITE\r\nUser-Agent: LinphoneAndroid/6.0.2 (Galaxy S9+ von Manuel) LinphoneSDK/5.4.5 (tags/5.4.5^0)\r\nSupported: replaces, outbound, gruu, path, record-aware\r\n\r\n",
+        "sip.msg_hdr_tree": {
+          "sip.Via": "SIP/2.0/UDP 192.168.0.63;branch=z9hG4bKfdfc.f140c853d36db46bcea064ce8ff928b5.0",
+          "sip.Via_tree": {
+            "sip.Via.transport": "UDP",
+            "sip.Via.sent-by.address": "192.168.0.63",
+            "sip.Via.branch": "z9hG4bKfdfc.f140c853d36db46bcea064ce8ff928b5.0"
+          },
+          "sip.Via": "SIP/2.0/UDP 192.168.0.52:44010;received=192.168.0.52;branch=z9hG4bK.whzxlaXtP;rport=44010",
+          "sip.Via_tree": {
+            "sip.Via.transport": "UDP",
+            "sip.Via.sent-by.address": "192.168.0.52",
+            "sip.Via.sent-by.port": "44010",
+            "sip.Via.received": "192.168.0.52",
+            "sip.Via.branch": "z9hG4bK.whzxlaXtP",
+            "sip.Via.rport": "44010"
+          },
+          "sip.From": "\"RTP1\" <sip:linphpne1@192.168.0.63>;tag=NlDUy-O8t",
+          "sip.From_tree": {
+            "sip.from.display.info": "\"RTP1\"",
+            "sip.display.info": "\"RTP1\"",
+            "sip.from.addr": "sip:linphpne1@192.168.0.63",
+            "sip.from.addr_tree": {
+              "sip.from.user": "linphpne1",
+              "sip.from.host": "192.168.0.63"
+            },
+            "sip.from.tag": "NlDUy-O8t",
+            "sip.tag": "NlDUy-O8t"
+          },
+          "sip.To": "\"Linphone2\" <sip:linphone2@192.168.0.63>;tag=PcDZCtB",
+          "sip.To_tree": {
+            "sip.to.display.info": "\"Linphone2\"",
+            "sip.display.info": "\"Linphone2\"",
+            "sip.to.addr": "sip:linphone2@192.168.0.63",
+            "sip.to.addr_tree": {
+              "sip.to.user": "linphone2",
+              "sip.to.host": "192.168.0.63"
+            },
+            "sip.to.tag": "PcDZCtB",
+            "sip.tag": "PcDZCtB"
+          },
+          "sip.Call-ID": "ShkDdndI9T",
+          "sip.call_id_generated": "ShkDdndI9T",
+          "sip.CSeq": "20 INVITE",
+          "sip.CSeq_tree": {
+            "sip.CSeq.seq": "20",
+            "sip.CSeq.method": "INVITE"
+          },
+          "sip.User-Agent": "LinphoneAndroid/6.0.2 (Galaxy S9+ von Manuel) LinphoneSDK/5.4.5 (tags/5.4.5^0)",
+          "sip.Supported": "replaces, outbound, gruu, path, record-aware"
+        }
+      }
+    }
+  }
+}

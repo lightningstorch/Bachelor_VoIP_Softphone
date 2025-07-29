@@ -1,3 +1,4 @@
+import json
 import shutil
 import time
 import unittest
@@ -15,57 +16,41 @@ class TestCaptureProvider(unittest.TestCase):
     @staticmethod
     def create_mock_packet():
         """ Create mock packets for testing."""
-        mock_sip_packet_invite = MagicMock()
-        mock_sip_packet_invite.sip = MagicMock()
-        mock_sip_packet_invite.sip.method = "INVITE"
-
-        mock_sip_packet_ack = MagicMock()
-        mock_sip_packet_ack.sip = MagicMock()
-        mock_sip_packet_ack.sip.method = "ACK"
-
-        mock_rtp_packet_1 = MagicMock()
-        mock_rtp_packet_1.rtp = MagicMock()
-        mock_rtp_packet_1.rtp.ssrc = "0x12345678"
-
-        mock_rtp_packet_2 = MagicMock()
-        mock_rtp_packet_2.rtp = MagicMock()
-        mock_rtp_packet_2.rtp.ssrc = "0xabcdefgh"
-
-        return [mock_sip_packet_invite, mock_sip_packet_ack, mock_rtp_packet_1, mock_rtp_packet_2]
+        return json.dumps([
+            {"_source": {"layers": {"sip": {"sip.Method": "INVITE"}}}},
+            {"_source": {"layers": {"sip": {"sip.Method": "ACK"}}}},
+            {"_source": {"layers": {"rtp": {"rtp.ssrc": "0x12345678"}}}},
+            {"_source": {"layers": {"rtp": {"rtp.ssrc": "0xabcdefgh"}}}},
+        ])
 
     def validate_packet(self):
         """ Validate the packets in the queue."""
         self.assertEqual(self.queue.qsize(), 4)
-        packet_1 = self.queue.get()
-        packet_2 = self.queue.get()
-        packet_3 = self.queue.get()
-        packet_4 = self.queue.get()
 
-        self.assertEqual(packet_1.sip.method, "INVITE")
-        self.assertEqual(packet_2.sip.method, "ACK")
-        self.assertEqual(packet_3.rtp.ssrc, "0x12345678")
-        self.assertEqual(packet_4.rtp.ssrc, "0xabcdefgh")
+        packets = list(self.queue.queue)
 
-    @patch("pyshark.FileCapture")
+        self.assertEqual(packets[0]["_source"]["layers"]["sip"]["sip.Method"], "INVITE")
+        self.assertEqual(packets[1]["_source"]["layers"]["sip"]["sip.Method"], "ACK")
+        self.assertEqual(packets[2]["_source"]["layers"]["rtp"]["rtp.ssrc"], "0x12345678")
+        self.assertEqual(packets[3]["_source"]["layers"]["rtp"]["rtp.ssrc"], "0xabcdefgh")
+
+    @patch("data_collection.capture_provider.subprocess.check_output")
     @patch("os.path.exists")
     @patch("os.path.isfile")
     @patch("data_collection.capture_provider.validate_file")
-    def test_file_capture(self, mock_validate_file, mock_is_file, mock_exists, mock_file_capture):
+    def test_file_capture(self, mock_validate_file, mock_is_file, mock_exists, mock_check_output):
         """ Test the file capture functionality of CaptureProvider."""
         # Mock the function to return True
         mock_validate_file.return_value = True
         mock_exists.return_value = True
         mock_is_file.return_value = True
 
-        # Mock the FileCapture to return a generator of packets
-        mock_capture = mock_file_capture.return_value
-        mock_capture.__iter__.return_value = self.create_mock_packet()
+        mock_json_output = self.create_mock_packet()
+        mock_check_output.return_value = mock_json_output
 
-        # Create an instance of CaptureProvider with file capture
-        capture_provider = CaptureProvider("file", "test.pcap", self.queue)
+        capture_provider = CaptureProvider("file", "dummy.pcap", self.queue)
         capture_provider.file_capture("(sip or rtp)")
 
-        # Validate the packets captured
         self.validate_packet()
 
     @patch("data_collection.capture_provider.pyshark.LiveCapture")
@@ -149,30 +134,17 @@ class TestCaptureIntegration(unittest.TestCase):
         capture_provider.stop()
         capture_provider.join()
 
-
         self.assertEqual(self.queue.qsize(), 14)
 
         # sorting the packets in the queue
         packets = list(self.queue.queue)
-        sip_list = [packet for packet in packets if hasattr(packet, 'sip')]
-        rtp_list = [packet for packet in packets if hasattr(packet, 'rtp')]
+        sip_list = [pkt for pkt in packets if "sip" in pkt.get("_source", {}).get("layers", {})]
+        rtp_list = [pkt for pkt in packets if "rtp" in pkt.get("_source", {}).get("layers", {})]
 
         # Validate the number of SIP and RTP packets
         self.assertEqual(len(sip_list), 6)
         self.assertEqual(len(rtp_list), 8)
 
-
     def test_live_capture_integration(self):
         """Test the integration of CaptureProvider with live capture."""
         print("This test requires a live network interface and is not suitable for automated testing.")
-
-
-
-
-
-
-
-
-
-
-

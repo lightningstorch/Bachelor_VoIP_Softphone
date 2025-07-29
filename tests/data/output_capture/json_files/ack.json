@@ -1,0 +1,176 @@
+{
+  "_index": "packets-2025-06-05",
+  "_type": "doc",
+  "_score": null,
+  "_source": {
+    "layers": {
+      "frame": {
+        "frame.section_number": "1",
+        "frame.interface_id": "0",
+        "frame.interface_id_tree": {
+          "frame.interface_name": "\\Device\\NPF_{08F533A9-EC1D-49E9-AA46-8E73432E0A35}",
+          "frame.interface_description": "Ethernet"
+        },
+        "frame.encap_type": "1",
+        "frame.time": "Jun  5, 2025 17:31:58.678428000 MitteleuropÃ¤ische Sommerzeit",
+        "frame.time_utc": "Jun  5, 2025 15:31:58.678428000 UTC",
+        "frame.time_epoch": "1749137518.678428000",
+        "frame.offset_shift": "0.000000000",
+        "frame.time_delta": "0.335888000",
+        "frame.time_delta_displayed": "0.335888000",
+        "frame.time_relative": "10.470213000",
+        "frame.number": "7",
+        "frame.len": "486",
+        "frame.cap_len": "486",
+        "frame.marked": "0",
+        "frame.ignored": "0",
+        "frame.protocols": "eth:ethertype:ip:udp:sip"
+      },
+      "eth": {
+        "eth.dst": "00:16:3e:a7:7f:18",
+        "eth.dst_tree": {
+          "eth.dst_resolved": "Xensource_a7:7f:18",
+          "eth.dst.oui": "5694",
+          "eth.dst.oui_resolved": "Xensource, Inc.",
+          "eth.dst.lg": "0",
+          "eth.dst.ig": "0",
+          "eth.addr": "00:16:3e:a7:7f:18",
+          "eth.addr_resolved": "Xensource_a7:7f:18",
+          "eth.addr.oui": "5694",
+          "eth.addr.oui_resolved": "Xensource, Inc.",
+          "eth.lg": "0",
+          "eth.ig": "0"
+        },
+        "eth.src": "b6:fe:fa:4a:0f:1f",
+        "eth.src_tree": {
+          "eth.src_resolved": "b6:fe:fa:4a:0f:1f",
+          "eth.src.oui": "11992826",
+          "eth.src.lg": "1",
+          "eth.src.ig": "0",
+          "eth.addr": "b6:fe:fa:4a:0f:1f",
+          "eth.addr_resolved": "b6:fe:fa:4a:0f:1f",
+          "eth.addr.oui": "11992826",
+          "eth.lg": "1",
+          "eth.ig": "0"
+        },
+        "eth.type": "0x0800",
+        "eth.stream": "0"
+      },
+      "ip": {
+        "ip.version": "4",
+        "ip.hdr_len": "20",
+        "ip.dsfield": "0x00",
+        "ip.dsfield_tree": {
+          "ip.dsfield.dscp": "0",
+          "ip.dsfield.ecn": "0"
+        },
+        "ip.len": "472",
+        "ip.id": "0xaec6",
+        "ip.flags": "0x02",
+        "ip.flags_tree": {
+          "ip.flags.rb": "0",
+          "ip.flags.df": "1",
+          "ip.flags.mf": "0"
+        },
+        "ip.frag_offset": "0",
+        "ip.ttl": "64",
+        "ip.proto": "17",
+        "ip.checksum": "0x0888",
+        "ip.checksum.status": "2",
+        "ip.src": "192.168.0.55",
+        "ip.addr": "192.168.0.55",
+        "ip.src_host": "192.168.0.55",
+        "ip.host": "192.168.0.55",
+        "ip.dst": "192.168.0.63",
+        "ip.addr": "192.168.0.63",
+        "ip.dst_host": "192.168.0.63",
+        "ip.host": "192.168.0.63",
+        "ip.stream": "0"
+      },
+      "udp": {
+        "udp.srcport": "52082",
+        "udp.dstport": "5060",
+        "udp.port": "52082",
+        "udp.port": "5060",
+        "udp.length": "452",
+        "udp.checksum": "0x826b",
+        "udp.checksum.status": "2",
+        "udp.stream": "0",
+        "udp.stream.pnum": "3",
+        "Timestamps": {
+          "udp.time_relative": "10.470213000",
+          "udp.time_delta": "0.335888000"
+        },
+        "udp.payload": "41:43:4b:20:73:69:70:3a:4c:69:6e:70:68:6f:6e:65:32:40:31:39:32:2e:31:36:38:2e:30:2e:35:36:3a:35:35:32:30:32:3b:74:72:61:6e:73:70:6f:72:74:3d:75:64:70:3b:61:6c:69:61:73:3d:31:39:32:2e:31:36:38:2e:30:2e:35:36:7e:35:35:32:30:32:7e:31:20:53:49:50:2f:32:2e:30:0d:0a:56:69:61:3a:20:53:49:50:2f:32:2e:30:2f:55:44:50:20:31:39:32:2e:31:36:38:2e:30:2e:35:35:3a:35:32:30:38:32:3b:72:70:6f:72:74:3b:62:72:61:6e:63:68:3d:7a:39:68:47:34:62:4b:2e:6f:50:5a:4a:4b:69:69:42:79:0d:0a:46:72:6f:6d:3a:20:22:52:54:50:31:22:20:3c:73:69:70:3a:6c:69:6e:70:68:70:6e:65:31:40:31:39:32:2e:31:36:38:2e:30:2e:36:33:3e:3b:74:61:67:3d:30:6f:66:77:43:30:4a:63:39:0d:0a:54:6f:3a:20:22:4c:69:6e:70:68:6f:6e:65:32:22:20:3c:73:69:70:3a:6c:69:6e:70:68:6f:6e:65:32:40:31:39:32:2e:31:36:38:2e:30:2e:36:33:3e:3b:74:61:67:3d:42:42:43:4b:62:4d:74:0d:0a:43:53:65:71:3a:20:32:30:20:41:43:4b:0d:0a:43:61:6c:6c:2d:49:44:3a:20:33:6a:58:79:74:36:4b:65:68:45:0d:0a:4d:61:78:2d:46:6f:72:77:61:72:64:73:3a:20:37:30:0d:0a:52:6f:75:74:65:3a:20:3c:73:69:70:3a:31:39:32:2e:31:36:38:2e:30:2e:36:33:3b:6c:72:3b:6e:61:74:3d:79:65:73:3e:0d:0a:55:73:65:72:2d:41:67:65:6e:74:3a:20:4c:69:6e:70:68:6f:6e:65:41:6e:64:72:6f:69:64:2f:36:2e:30:2e:38:20:28:52:65:64:6d:69:20:41:33:29:20:4c:69:6e:70:68:6f:6e:65:53:44:4b:2f:35:2e:34:2e:31:39:20:28:74:61:67:73:2f:35:2e:34:2e:31:39:5e:30:29:0d:0a:0d:0a"
+      },
+      "sip": {
+        "sip.Request-Line": "ACK sip:Linphone2@192.168.0.56:55202;transport=udp;alias=192.168.0.56~55202~1 SIP/2.0",
+        "sip.Request-Line_tree": {
+          "sip.Method": "ACK",
+          "sip.r-uri": "sip:Linphone2@192.168.0.56:55202;transport=udp;alias=192.168.0.56~55202~1",
+          "sip.r-uri_tree": {
+            "sip.r-uri.user": "Linphone2",
+            "sip.r-uri.host": "192.168.0.56",
+            "sip.r-uri.port": "55202"
+          },
+          "sip.resend": "0",
+          "sip.response-request": "1",
+          "sip.response-time": "10470"
+        },
+        "sip.msg_hdr": "Via: SIP/2.0/UDP 192.168.0.55:52082;rport;branch=z9hG4bK.oPZJKiiBy\r\nFrom: \"RTP1\" <sip:linphpne1@192.168.0.63>;tag=0ofwC0Jc9\r\nTo: \"Linphone2\" <sip:linphone2@192.168.0.63>;tag=BBCKbMt\r\nCSeq: 20 ACK\r\nCall-ID: 3jXyt6KehE\r\nMax-Forwards: 70\r\nRoute: <sip:192.168.0.63;lr;nat=yes>\r\nUser-Agent: LinphoneAndroid/6.0.8 (Redmi A3) LinphoneSDK/5.4.19 (tags/5.4.19^0)\r\n\r\n",
+        "sip.msg_hdr_tree": {
+          "sip.Via": "SIP/2.0/UDP 192.168.0.55:52082;rport;branch=z9hG4bK.oPZJKiiBy",
+          "sip.Via_tree": {
+            "sip.Via.transport": "UDP",
+            "sip.Via.sent-by.address": "192.168.0.55",
+            "sip.Via.sent-by.port": "52082",
+            "sip.Via.rport": "rport",
+            "sip.Via.branch": "z9hG4bK.oPZJKiiBy"
+          },
+          "sip.From": "\"RTP1\" <sip:linphpne1@192.168.0.63>;tag=0ofwC0Jc9",
+          "sip.From_tree": {
+            "sip.from.display.info": "\"RTP1\"",
+            "sip.display.info": "\"RTP1\"",
+            "sip.from.addr": "sip:linphpne1@192.168.0.63",
+            "sip.from.addr_tree": {
+              "sip.from.user": "linphpne1",
+              "sip.from.host": "192.168.0.63"
+            },
+            "sip.from.tag": "0ofwC0Jc9",
+            "sip.tag": "0ofwC0Jc9"
+          },
+          "sip.To": "\"Linphone2\" <sip:linphone2@192.168.0.63>;tag=BBCKbMt",
+          "sip.To_tree": {
+            "sip.to.display.info": "\"Linphone2\"",
+            "sip.display.info": "\"Linphone2\"",
+            "sip.to.addr": "sip:linphone2@192.168.0.63",
+            "sip.to.addr_tree": {
+              "sip.to.user": "linphone2",
+              "sip.to.host": "192.168.0.63"
+            },
+            "sip.to.tag": "BBCKbMt",
+            "sip.tag": "BBCKbMt"
+          },
+          "sip.CSeq": "20 ACK",
+          "sip.CSeq_tree": {
+            "sip.CSeq.seq": "20",
+            "sip.CSeq.method": "ACK"
+          },
+          "sip.Call-ID": "3jXyt6KehE",
+          "sip.call_id_generated": "3jXyt6KehE",
+          "sip.Max-Forwards": "70",
+          "sip.Route": "<sip:192.168.0.63;lr;nat=yes>",
+          "sip.Route_tree": {
+            "sip.Route.uri": "sip:192.168.0.63;lr;nat=yes",
+            "sip.Route.uri_tree": {
+              "sip.Route.host": "192.168.0.63",
+              "sip.Route.param": "lr",
+              "sip.Route.param": "nat=yes"
+            }
+          },
+          "sip.User-Agent": "LinphoneAndroid/6.0.8 (Redmi A3) LinphoneSDK/5.4.19 (tags/5.4.19^0)"
+        }
+      }
+    }
+  }
+}

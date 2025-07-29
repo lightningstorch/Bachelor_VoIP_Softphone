@@ -1,4 +1,3 @@
-from narwhals import Boolean
 from sqlalchemy import create_engine, Engine, event
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker, joinedload

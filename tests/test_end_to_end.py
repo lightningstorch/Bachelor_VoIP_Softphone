@@ -4,7 +4,6 @@ import time
 import unittest
 from pathlib import Path
 from queue import Queue
-from unittest.mock import patch
 
 class TestEndToEnd(unittest.TestCase):
     """
@@ -126,6 +125,8 @@ class TestEndToEnd(unittest.TestCase):
         packet_processor.start()
 
         self._waiting_for_call_end(call_sections["call_id"])
+
+        time.sleep(3)  # Wait for the talking sections to store in the database
 
         # Stop components
         capture_provider.stop()

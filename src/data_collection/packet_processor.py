@@ -10,7 +10,7 @@ from cachetools import TTLCache
 from call_context.manager_call_context import ManagerCallContext
 from config.config import server_ip
 from datastructure.dataclass_models import Call, Participant, EventType, ServerInfo, ParticipantInfo
-from my_logging.log_config import app_logger
+from utils.packet_parsing import *
 
 class PacketProcessor(threading.Thread):
     def __init__(self, message_service, queue: Queue, manager_call_context: ManagerCallContext, cleanup_queue: Queue):
@@ -62,60 +62,88 @@ class PacketProcessor(threading.Thread):
                 self._clear_call_resources(cleanup_id)
 
             try:
-                packet = self.queue.get(timeout=1)
+                packet = self.queue.get(timeout=0.001)
             except Empty:
                 continue
 
-            if hasattr(packet, 'sip'):
-                self._sip_process(packet)
+            sip_layer = get_layer(packet, "sip")
+            rtp_layer = get_layer(packet, "rtp")
+            ip_dst = get_ip_dst(packet)
 
-            elif hasattr(packet, 'rtp') and packet.ip.dst == server_ip:
+            if sip_layer is not None:
+                self._sip_process(packet, sip_layer)
+
+            elif rtp_layer is not None and ip_dst == server_ip:
                 self._rtp_process(packet)
 
-    def _sip_process(self, sip_packet):
-        sip = sip_packet.sip
-        #print(sip.field_names)
+    def _sip_process(self, sip_packet, sip):
 
         # Cache packets to avoid duplicate processing - duplicate on the network
         if self._check_dup_packet(sip, sip_packet):
             return
 
-        if sip_packet.ip.dst == server_ip:
+        ip_layer = get_layer(sip_packet, "ip")
+
+        if ip_layer.get('ip.dst') == server_ip:
             # incoming packets from the server
-            if hasattr(sip, 'request_line'):
-                match sip.method:
+            if 'sip.Request-Line' in sip:
+
+                method = get_method(sip)
+
+                match method:
                     case 'INVITE': self._sip_incoming_invite(sip)
 
                     case 'ACK': self._sip_incoming_ack(sip, sip_packet)
 
-                    case 'BYE': print(sip.method)
+                    case 'BYE': print(method)
                         # app_logger.debug(f"BYE detected: {sip.method}")
                         # Request to end the call
 
-            elif hasattr(sip, 'status_line'):
-               if int(sip.status_code) == 200:
-                    method = getattr(sip, 'cseq_method', 'UNKNOWN')
+            elif 'sip.Status-Line' in sip:
 
-                    if method == 'INVITE':
+                status_code = get_status_code(sip)
+
+                if status_code and int(status_code) == 200:
+
+                    cseq_method = get_cseq_method(sip)
+
+                    if cseq_method == 'INVITE':
                         self._sip_incoming_200_invite(sip)
 
-                    elif method == 'BYE':
+                    elif cseq_method == 'BYE':
                         self._sip_incoming_200_bye(sip, sip_packet)
 
-               elif int(sip.status_code) == 603:
-                   # 603 = Decline
-                   self._sip_incoming_603_decline(sip)
+                elif status_code and int(status_code) == 603:
+                    # 603 = Decline
+                    self._sip_incoming_603_decline(sip)
+
         else:
             # outing packets from the server
-            if hasattr(sip, 'request_line') and sip.method == 'INVITE':
-                self._outgoing_invite(sip, sip.to_user)
-            elif hasattr(sip, 'status_line') and int(sip.status_code) == 200 and getattr(sip, 'cseq_method', 'UNKNOWN') == 'INVITE':
-                self._outgoing_invite(sip, sip.from_user)
+            if 'sip.Request-Line' in sip:
+
+                method = get_method(sip)
+
+                if method == 'INVITE':
+                    to_user = get_to_user(sip)
+                    self._outgoing_invite(sip, to_user)
+
+            elif 'sip.Status-Line' in sip:
+
+                status_code = get_status_code(sip)
+                cseq_method = get_cseq_method(sip)
+
+                if status_code and int(status_code) == 200 and cseq_method == 'INVITE':
+                    from_user = get_from_user(sip)
+                    self._outgoing_invite(sip, from_user)
 
     def _rtp_process(self, rtp_packet):
-        # print(rtp.field_names)
 
-        key = (rtp_packet.ip.src, rtp_packet.udp.srcport, rtp_packet.ip.dst, rtp_packet.udp.dstport)
+        ip_src = get_ip_src(rtp_packet)
+        udp_srcport = get_udp_srcport(rtp_packet)
+        ip_dst = get_ip_dst(rtp_packet)
+        udp_dstport = get_udp_dstport(rtp_packet)
+
+        key = (ip_src, udp_srcport, ip_dst, udp_dstport)
 
         if key not in self._call_map:
             app_logger.debug(f"RTP-paket without mapping: {key} -> buffer length = {len(self._rtp_buffer[key]) + 1}")
@@ -136,18 +164,26 @@ class PacketProcessor(threading.Thread):
     # =========================================================
 
     def _sip_incoming_invite(self, sip):
+
+        method = get_method(sip)
+        call_id = get_call_id(sip)
+        media_port = get_media_port(sip)
+        mime_type, sample_rate = get_preferred_codec_sample_rate(sip)
+        from_user = get_from_user(sip)
+
+
         app_logger.debug(
-            f"INVITE detected: {sip.method},"
-            f" Call-ID: {sip.call_id},"
-            f" Media Port: {sip.sdp_media_port},"
-            f" MIME Type: {sip.sdp_mime_type},"
-            f" user: {sip.from_user}"
+            f"INVITE detected: {method},"
+            f" Call-ID: {call_id},"
+            f" Media Port: {media_port},"
+            f" MIME Type: {mime_type},"
+            f" user: {from_user}"
         )
 
         payload_call = Call(
             type=EventType.NEW_CALL,
-            caller=sip.from_user,
-            call_id=sip.call_id
+            caller=from_user,
+            call_id=call_id
         ).model_dump_json()
 
         self._message_service.publish(
@@ -157,35 +193,45 @@ class PacketProcessor(threading.Thread):
             routing_key="new_call",
         )
 
-        self._publish_and_store_participant(sip, sip.from_user)
+        self._publish_and_store_participant(sip, from_user)
 
     def _sip_incoming_200_invite(self, sip):
         # call setup is confirmed
 
+        status_line = get_status_line(sip)
+        call_id = get_call_id(sip)
+        media_port = get_media_port(sip)
+        to_user = get_to_user(sip)
+        mime_type, sample_rate = get_preferred_codec_sample_rate(sip)
+
         app_logger.debug(
-            f"INVITE accepted: {sip.status_line},"
-            f" Call-ID: {sip.call_id},"
-            f" Media Port: {sip.sdp_media_port},"
-            f" MIME Type: {sip.sdp_mime_type},"
-            f" user: {sip.to_user}"
+            f"INVITE accepted: {status_line},"
+            f" Call-ID: {call_id},"
+            f" Media Port: {media_port},"
+            f" MIME Type: {mime_type},"
+            f" user: {to_user}"
         )
 
         self.manager_call_context.create_or_insert_call_context(
-            call_id=sip.call_id,
-            sample_rate=int(sip.sdp_sample_rate)
+            call_id=call_id,
+            sample_rate=int(sample_rate)
         )
 
-        self._publish_and_store_participant(sip, sip.to_user)
+        self._publish_and_store_participant(sip, to_user)
 
     def _sip_incoming_ack(self, sip, sip_packet):
-        print(sip.method)
+        method = get_method(sip)
+        call_id = get_call_id(sip)
+        time_stamp = get_time_stamp_isoformat(sip_packet)
 
-        app_logger.debug(f"ACK detected: {sip.method}, Call-ID: {sip.call_id}")
+        print(method)
+
+        app_logger.debug(f"ACK detected: {method}, Call-ID: {call_id}")
 
         payload_ack = Call(
             type = EventType.ACK,
-            call_id = sip.call_id,
-            start_time=sip_packet.sniff_time,
+            call_id = call_id,
+            start_time=time_stamp,
         ).model_dump_json()
 
         self._message_service.publish(
@@ -196,14 +242,20 @@ class PacketProcessor(threading.Thread):
         )
 
     def _sip_incoming_200_bye(self, sip, sip_packet):
-        print(f"{sip.status_code}: {sip.status_line} BYE")
 
-        app_logger.debug(f"BYE accepted: {sip.status_line}, Call-ID: {sip.call_id}")
+        call_id = get_call_id(sip)
+        status_code = get_status_code(sip)
+        status_line = get_status_line(sip)
+        time_stamp = get_time_stamp_isoformat(sip_packet)
+
+        print(f"{status_code}: {status_line} BYE")
+
+        app_logger.debug(f"BYE accepted: {status_line}, Call-ID: {call_id}")
 
         payload_bye= Call(
             type = EventType.CALL_END,
-            call_id = sip.call_id,
-            end_time= sip_packet.sniff_time,
+            call_id = call_id,
+            end_time= time_stamp,
         ).model_dump_json()
 
         self._message_service.publish(
@@ -213,17 +265,20 @@ class PacketProcessor(threading.Thread):
             routing_key="end_call",
         )
 
-        self.manager_call_context.end_call(sip.call_id)
-        #self.remove_from_buffer(sip.call_id)
+        self.manager_call_context.end_call(call_id)
 
     def _sip_incoming_603_decline(self, sip):
-        print(f"{sip.status_code}: {sip.status_line} DECLINE")
+        call_id = get_call_id(sip)
+        status_code = get_status_code(sip)
+        status_line = get_status_line(sip)
 
-        app_logger.debug(f"Decline detected: {sip.status_line}, Call-ID: {sip.call_id}")
+        print(f"{status_code}: {status_line} DECLINE")
+
+        app_logger.debug(f"Decline detected: {status_line}, Call-ID: {call_id}")
 
         payload_decline= Call(
             type = EventType.CALL_DECLINE,
-            call_id = sip.call_id,
+            call_id = call_id,
         ).model_dump_json()
 
         self._message_service.publish(
@@ -236,24 +291,32 @@ class PacketProcessor(threading.Thread):
     def _outgoing_invite(self, sip, user):
         self._send_server_info(sip, user)
 
+        call_id = get_call_id(sip)
+        sdp_connection_info_address = get_sdp_connection_info_address(sip)
+        media_port = get_media_port(sip)
+
         # store in buffer for RTP processing
         fields = {
             "user": user,
-            "server_ip": sip.sdp_connection_info_address,
-            "server_port": sip.sdp_media_port
+            "server_ip": sdp_connection_info_address,
+            "server_port": media_port
         }
-        self._store_in_buffer(sip.call_id, **fields)
+        self._store_in_buffer(call_id, **fields)
 
     # =========================================================
     #                   Helper Methods
     # =========================================================
 
     def _send_server_info(self, sip, user):
+        call_id = get_call_id(sip)
+        sdp_connection_info_address = get_sdp_connection_info_address(sip)
+        media_port = get_media_port(sip)
+
         payload_server_data = ServerInfo(
             type=EventType.SERVER_INFO,
-            call_id=sip.call_id,
-            server_ip=sip.sdp_connection_info_address,
-            server_port=sip.sdp_media_port,
+            call_id=call_id,
+            server_ip=sdp_connection_info_address,
+            server_port=media_port,
             user=user,
         ).model_dump_json()
 
@@ -265,17 +328,18 @@ class PacketProcessor(threading.Thread):
         )
 
     def _handle_rtp_packet(self, rtp_packet, call_id, user):
-        rtp = rtp_packet.rtp
 
-        if rtp.ssrc not in self._ssrc_to_call_id:
+        ssrc = get_ssrc(rtp_packet)
+
+        if ssrc not in self._ssrc_to_call_id:
             # store the SSRC in the call_map
-            self._ssrc_to_call_id[rtp.ssrc] = (call_id, user)
+            self._ssrc_to_call_id[ssrc] = (call_id, user)
 
             # send the ssrc to aggregator to store in database
             self._message_service.publish(
                 json.dumps({
                     "call_id": call_id,
-                    "ssrc": rtp.ssrc,
+                    "ssrc": ssrc,
                     "user": user
                 })
                 ,
@@ -285,16 +349,22 @@ class PacketProcessor(threading.Thread):
             )
 
         #binary_value = rtp.payload.binary_value
-        self.manager_call_context.enqueue_packet(call_id, rtp.ssrc, rtp_packet)
+        self.manager_call_context.enqueue_packet(call_id, ssrc, rtp_packet)
 
     def _publish_and_store_participant(self, sip, user):
+
+        call_id = get_call_id(sip)
+        sdp_connection_info_address = get_sdp_connection_info_address(sip)
+        media_port = get_media_port(sip)
+        mime_type, _ = get_preferred_codec_sample_rate(sip)
+
         payload_participants = Participant(
             type=EventType.PARTICIPANTS,
-            call_id=sip.call_id,
+            call_id=call_id,
             user=user,
-            ip_address=sip.sdp_connection_info_address,
-            media_port=sip.sdp_media_port,
-            mime_type=sip.sdp_mime_type,
+            ip_address=sdp_connection_info_address,
+            media_port=media_port,
+            mime_type=mime_type,
         ).model_dump_json()
 
         self._message_service.publish(
@@ -307,11 +377,12 @@ class PacketProcessor(threading.Thread):
         # store in buffer for RTP processing
         fields = {
             "user": user,
-            "ip_address": sip.sdp_connection_info_address,
-            "media_port": sip.sdp_media_port,
-            "mime_type": sip.sdp_mime_type,
+            "ip_address": sdp_connection_info_address,
+            "media_port": media_port,
+            "mime_type": mime_type,
         }
-        self._store_in_buffer(sip.call_id, **fields)
+
+        self._store_in_buffer(call_id, **fields)
 
     def _store_in_buffer(self, call_id: str, **fields):
         """
@@ -387,15 +458,31 @@ class PacketProcessor(threading.Thread):
         :param sip: Session Initiation Protocol packet from the Network dump
         :return: True is when the packet exists in the cache - false if the packet isn't in the cache
         """
-        status_code = getattr(sip, 'status_code', None)
-        method = getattr(sip, 'method', None)
+        status_code = sip.get('sip.Status-Line_tree')
+        if status_code:
+            status_code = status_code.get('sip.Status-Code')
+
+        method = sip.get('sip.Request-Line_tree')
+        if method:
+            method.get('sip.Method')
+
+        action = status_code or method
+
+        call_id = get_call_id(sip)
+        via_branch = get_via_branches(sip)
+
+        ip_src = get_ip_src(sip_packet)
+
+        udp_srcport = get_udp_srcport(sip_packet)
+
+
 
         # create the cache name
-        unique_cache_id = (f"{sip.call_id}"
-                           f"-{sip.via_branch}"
-                           f"-{status_code if status_code is not None else method}"
-                           f"-{sip_packet.ip.src}"
-                           f"-{sip_packet.udp.srcport}")
+        unique_cache_id = (f"{call_id}"
+                           f"-{via_branch}"
+                           f"-{action}"
+                           f"-{ip_src}"
+                           f"-{udp_srcport}")
 
         # check in the cache
         with self._cache_lock:
@@ -408,3 +495,7 @@ class PacketProcessor(threading.Thread):
         #     print(f"{key}: {value}")
 
         return True
+
+
+
+

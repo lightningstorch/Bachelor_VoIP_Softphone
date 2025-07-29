@@ -197,8 +197,7 @@ class Aggregator:
             broadcast_log("SSRC Detection:", f"SSRC '{body.get('ssrc')}' detection to fast, save it in the buffer - ack will process it later")
             print(f"SSRC '{body.get('ssrc')}' detection to fast, save it in the buffer - ack will process it later")
 
-    @staticmethod
-    def aggregator_talking_section(message: IncomingMessage):
+    def aggregator_talking_section(self, message: IncomingMessage):
         """
         Handles the talking section message from the message service.
         This method is called when a talking section message is received.
@@ -209,6 +208,10 @@ class Aggregator:
         # confirm receipt of the message
         asyncio.create_task(message.ack())
         body = json.loads(message.body.decode())
+
+        # if the call_id is not stored in the db yet, store it
+        if body.get("call_id") in self._call_buffer and not self._call_buffer[body.get("call_id")].stored:
+            self._store(body.get("call_id"))
 
         store_talking_sections(
             TalkingInterval(

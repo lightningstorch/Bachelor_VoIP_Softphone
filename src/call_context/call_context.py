@@ -52,7 +52,6 @@ class CallContext:
         """
         if ssrc in self._queues:
             self._queues[ssrc].put(packet)
-            #print(f"packet is inserted {packet.rtp.payload.binary_value}")
         else:
             app_logger.warning(f"SSRC '{ssrc}' not found in call context '{self.call_id}'.")
 
@@ -91,6 +90,20 @@ class CallContext:
         """
 
         lists = list(self.intervals.items())
+
+        if len(lists) < 2:
+            call_context_logger.debug(
+                f"Not enough SSRCs for overlap calculation. Found {len(lists)} SSRCs, need at least 2.")
+            print(
+                f"Not enough SSRCs for overlap calculation. Found {len(lists)} SSRCs, need at least 2.")
+            return
+
+            # Check if both SSRCs have intervals
+        if not lists[0][1] or not lists[1][1]:
+            call_context_logger.debug("One or both SSRCs have no speech intervals for overlap calculation.")
+            print("One or both SSRCs have no speech intervals for overlap calculation.")
+            return
+
         (ssrc1, intervals1), (ssrc2, intervals2) = lists[0], lists[1]
 
         overlaps = []
@@ -126,9 +139,12 @@ class CallContext:
         Stop the call context
         """
         self._stop_event.set()
+        self.thread.join()
+
+        self._flush_queue()
         self._flush_buffers()
         self.calculate_overlapping_intervals()
-        self.thread.join()
+
 
 #================================================
 #           Helper methods
@@ -168,3 +184,9 @@ class CallContext:
                 exchange_type=ExchangeType.DIRECT,
                 routing_key="talking_section"
             )
+
+    def _flush_queue(self):
+        for ssrc, queue in self._queues.items():
+            while not queue.empty():
+                packet = queue.get_nowait()
+                self._buffers[ssrc].add(packet)

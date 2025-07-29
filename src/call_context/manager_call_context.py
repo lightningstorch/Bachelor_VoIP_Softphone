@@ -87,7 +87,7 @@ class ManagerCallContext:
 
                 call_context = self.all_contexts.pop(call_id)
                 call_context.stop()
-
+                self._known_ssrc.pop(call_id, None)
                 self.cleanup_queue.put(call_id)
         else:
             app_logger.debug(f"Call ID '{call_id}' not found for ending the call.")
