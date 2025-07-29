@@ -1,14 +1,10 @@
 import json
 import os
 import subprocess
-import threading
-import asyncio
-import pyshark
 import time
 
 from threading import Event, Thread
 from my_logging.log_config import app_logger
-from test_buffer import buffer
 from utils.packet_parsing import handle_duplicates
 from utils.validation import validate_file
 
