@@ -23,7 +23,7 @@ from utils.program_state_manager import ProgramStateManager
 capture_provider: CaptureProvider | None = None
 packet_processor: PacketProcessor | None = None
 # Queues for inter-thread communication
-queue_packets: Queue = Queue()
+queue_packets: Queue = Queue(maxsize=1000)
 cleanup_queue: Queue = Queue()
 # AsyncMessageService instance
 message_service = AsyncMessageService()

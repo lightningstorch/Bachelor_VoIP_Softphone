@@ -20,7 +20,7 @@ class CaptureProvider(Thread):
         self.source_type = source_type
         self.source_value = source_value
         self.queue = queue
-        self.count = 10 # Number of packets to process before sleeping (file capture)
+        #self.count = 10 # Number of packets to process before sleeping (file capture)
 
     def run(self):
         app_logger.debug(f"Starting capture provider thread in mode: {self.source_type}")
@@ -88,7 +88,7 @@ class CaptureProvider(Thread):
                     try:
                         # parse the accumulated JSON text
                         pkt = json.loads(text, object_pairs_hook=handle_duplicates)
-                        self.queue.put(pkt)
+                        self.queue.put(pkt, block=True)
 
                     except json.JSONDecodeError as e:
                         app_logger.error(f"Error occured by parsing Json: {e}")
@@ -134,20 +134,20 @@ class CaptureProvider(Thread):
             output = subprocess.check_output(tshark_cmd, text=True)
             packets = json.loads(output, object_pairs_hook=handle_duplicates)
 
-            count = self.count # sleeptime after every 5 packets
+            # count = self.count # sleeptime after every 5 packets
 
             for packet in packets:
                 if self._stop_event.is_set():
                     break
 
-                self.queue.put(packet)
+                self.queue.put(packet, block=True)
                 # a sleep mechanism to control the flow of packet processing
                 # this is to avoid overwhelming the queue and allow other threads to process
                 # packets in the queue (otherwise the program didn't work correctly)
-                count -= 1
-                if count <= 0:
-                    time.sleep(0.001)  # Small delay to allow other threads to process
-                    count = self.count
+                # count -= 1
+                # if count <= 0:
+                #     time.sleep(0.001)  # Small delay to allow other threads to process
+                #     count = self.count
 
         except subprocess.CalledProcessError as e:
             app_logger.error(f"Error by TShark: {e}")
