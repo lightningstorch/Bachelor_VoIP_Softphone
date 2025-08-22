@@ -44,7 +44,16 @@ def create_token(username: str):
     }
     return jwt.encode(data, key=secret_key, algorithm=algorithm)
 
-def verify_token(token: str = Depends(OAuth2PasswordBearer(tokenUrl="/api/login"))):
+def verify_token_oauth(token: str = Depends(OAuth2PasswordBearer(tokenUrl="/api/login"))):
+    """
+    Dependency function for FastAPI to verify the JWT token from the Authorization header.
+    :param token: The JWT token extracted from the Authorization header.
+    :return: The user object if the token is valid.
+    """
+    return verify_token(token)
+
+
+def verify_token(token: str):
     """
     Verifies the JWT token and returns the user if valid.
     :param token: The JWT token to verify.

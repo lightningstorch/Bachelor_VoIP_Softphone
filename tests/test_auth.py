@@ -5,7 +5,7 @@ import jwt
 from config.config import secret_key, algorithm
 from unittest.mock import patch, MagicMock
 from datastructure.database.models import UiUser
-from utils.auth import verify_token
+from utils.auth import verify_token_oauth
 from fastapi import HTTPException
 from src.utils.auth import create_token
 from utils.auth import hash_password, authenticate, verify_password
@@ -67,8 +67,8 @@ def test_verify_token_directly(data_test_user):
         mock_user.username = username
         mock_get_user.return_value = mock_user
 
-        from utils.auth import verify_token
-        result = verify_token(token)
+        from utils.auth import verify_token_oauth
+        result = verify_token_oauth(token)
 
         assert result == mock_user
         assert result.username == username
@@ -83,13 +83,13 @@ def test_verify_token_expired():
     expired_token = jwt.encode(payload, key=secret_key, algorithm=algorithm)
 
     with pytest.raises(ValueError, match="Token has expired"):
-        verify_token(expired_token)
+        verify_token_oauth(expired_token)
 
 def test_verify_token_invalid():
     invalid_token = "invalid.token.string"
 
     with pytest.raises(ValueError, match="Invalid token"):
-        verify_token(invalid_token)
+        verify_token_oauth(invalid_token)
 
 def test_verify_token_user_not_found():
     username = "nonexistent"
@@ -98,7 +98,7 @@ def test_verify_token_user_not_found():
     with patch("utils.auth.get_user", return_value=None):
 
         with pytest.raises(HTTPException) as exc_info:
-            verify_token(token)
+            verify_token_oauth(token)
 
         assert exc_info.value.status_code == 401
         assert "Could not validate credentials" in exc_info.value.detail

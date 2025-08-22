@@ -6,7 +6,7 @@ from fastapi.testclient import TestClient
 from unittest.mock import patch, MagicMock
 from src.api.api import app
 from io import BytesIO
-from utils.auth import verify_token
+from utils.auth import verify_token_oauth
 
 
 class TestAPI(unittest.TestCase):
@@ -23,7 +23,7 @@ class TestAPI(unittest.TestCase):
 
         # Override the verify_token dependency in the FastAPI app
         # Ignor the type error here, as this is a workaround for the test environment
-        app.dependency_overrides[verify_token] = lambda: self.mock_user
+        app.dependency_overrides[verify_token_oauth] = lambda: self.mock_user
 
     def tearDown(self):
         self.auth_patcher.stop()

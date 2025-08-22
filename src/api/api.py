@@ -7,14 +7,15 @@ from contextlib import asynccontextmanager
 from typing import List, Literal
 from sse_starlette.sse import EventSourceResponse
 from datastructure.database.models import UiUser
-from fastapi import FastAPI, HTTPException, Form, File, UploadFile, Depends, Request
+from fastapi import FastAPI, HTTPException, Form, File, UploadFile, Depends, Request, Query
+from fastapi.middleware.cors import CORSMiddleware
 from datastructure.database.database import (get_call_history_lite, get_call_for_api,
                                              get_user, change_password, set_user, remove_user)
 from datastructure.dataclass_models import CallHistoryLite, CallDetail
 from config.config import interface
 from fastapi.security import OAuth2PasswordRequestForm
 from main import switch_mode
-from utils.auth import authenticate, create_token, verify_token, verify_password, hash_password
+from utils.auth import authenticate, create_token, verify_token_oauth, verify_token, verify_password, hash_password
 from my_logging.log_config import event_queue, set_event_loop, app_logger
 from utils.program_state_manager import ProgramStateManager
 
@@ -38,12 +39,20 @@ app = FastAPI(title="Call History API", lifespan=lifespan)
 # Temporary directory for file uploads
 UPLOAD_DIR = tempfile.gettempdir()
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:8501", "http://127.0.0.1:8501"],
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 #===================================
 #         API Endpoints
 #===================================
 
 @app.get("/api/history", response_model=List[CallHistoryLite])
-def get_call_history(current_user: UiUser = Depends(verify_token)):
+def get_call_history(current_user: UiUser = Depends(verify_token_oauth)):
     """
     Fetches minimal information of the calls from the database.
     :param current_user: To ensure, the user is authenticated.
@@ -52,7 +61,7 @@ def get_call_history(current_user: UiUser = Depends(verify_token)):
     return get_call_history_lite()
 
 @app.get("/api/call-details", response_model=CallDetail)
-def get_call_details(call_id: str, current_user: UiUser = Depends(verify_token)):
+def get_call_details(call_id: str, current_user: UiUser = Depends(verify_token_oauth)):
     """
     Fetches detailed information about a specific call by its ID.
     :param current_user: To ensure, the user is authenticated.
@@ -68,7 +77,7 @@ def get_call_details(call_id: str, current_user: UiUser = Depends(verify_token))
 async def change_mode(
         mode: Literal["live", "file"] = Form(...),
         file: UploadFile | None = File(None),
-        current_user: UiUser = Depends(verify_token)
+        current_user: UiUser = Depends(verify_token_oauth)
 ):
     """
     Changes the program mode to either live or file.
@@ -100,7 +109,7 @@ async def change_mode(
     return None
 
 @app.get("/api/server-mode")
-def get_program_mode_endpoint(current_user: UiUser = Depends(verify_token)):
+def get_program_mode_endpoint(current_user: UiUser = Depends(verify_token_oauth)):
     """
     Returns the current mode of the program.
     :param current_user: To ensure, the user is authenticated.
@@ -115,7 +124,7 @@ def get_program_mode_endpoint(current_user: UiUser = Depends(verify_token)):
 def set_new_password(
         old_password: str = Form(...),
         new_password: str = Form(...),
-        current_user: UiUser = Depends(verify_token)
+        current_user: UiUser = Depends(verify_token_oauth)
 ):
     """
     Changes the password for the current user.
@@ -136,7 +145,7 @@ def set_new_password(
 def set_new_user(
         username: str = Form(...),
         password: str = Form(...),
-        current_user: UiUser = Depends(verify_token)
+        current_user: UiUser = Depends(verify_token_oauth)
 ):
     """
     Creates a new user with the provided username and password.
@@ -160,7 +169,7 @@ def set_new_user(
 def delete_user(
         username: str = Form(...),
         password: str = Form(...),
-        current_user: UiUser = Depends(verify_token)
+        current_user: UiUser = Depends(verify_token_oauth)
 ):
     """
     Deletes a user with the provided username and password.
@@ -184,7 +193,7 @@ def delete_user(
 
 @app.get("/api/health-check")
 def health_check(
-        current_user: UiUser = Depends(verify_token)
+        current_user: UiUser = Depends(verify_token_oauth)
 ):
     """
     A simple health check endpoint to verify the API is running.
@@ -219,29 +228,54 @@ async def login(from_data: OAuth2PasswordRequestForm = Depends()):
 @app.get("/api/logs/stream")
 async def log_stream(
         request: Request,
-        current_user: UiUser = Depends(verify_token)
+        current_user: UiUser = Depends(verify_token_oauth)
 ):
+    """
+    SSE endpoint for authenticated clients to receive real-time log updates.
+    """
     print("🟢 [SSE] New client connected")
     app_logger.info("New sse-client connected")
-    async def event_generator():
 
-        while True:
-            if await request.is_disconnected():
-                break
+    return EventSourceResponse(event_generator(request))
 
-            try:
-                event = await asyncio.wait_for(event_queue.get(), timeout=15)
-                yield {
-                    "event": event["type"],
-                    "data": json.dumps(event["payload"])
-                }
-
-            except asyncio.TimeoutError:
-                yield {
-                    "event": "keep-alive",
-                    "data": "ping"
-                }
-
-    return EventSourceResponse(event_generator())
+@app.get("/api/logs/stream-browser")
+async def log_stream_browser(request: Request, token: str = Query(..., min_length=10)):
+    """
+    SSE endpoint for browser clients. The token is passed as a query parameter.
+    """
+    _user = verify_token(token)
+    return EventSourceResponse(event_generator(request))
 
 
+async def event_generator(request: Request):
+    """
+    Generator function to yield log events to the SSE client.
+    Sends log events from the event queue to the client.
+    If no events are available within 15 seconds, sends a keep-alive ping.
+    If the client disconnects, the generator stops.
+    :param request: The incoming HTTP request.
+    :return: The event data to be sent to the client.
+    """
+
+    while True:
+        if await request.is_disconnected():
+            break
+
+        try:
+            event = await asyncio.wait_for(event_queue.get(), timeout=15)
+
+            payload = {
+                "type": event["type"],
+                "payload": event["payload"]
+            }
+
+            yield {
+                "event": "log",
+                "data": json.dumps(payload)
+            }
+
+        except asyncio.TimeoutError:
+            yield {
+                "event": "keep-alive",
+                "data": "ping"
+            }
