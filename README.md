@@ -273,8 +273,3 @@ requires access to the raw audio data and this is not possible with encrypted pa
 It will be possible, when the encryption keys are available, to decrypt the packets and process them. <br>
 But this is not implemented yet. <br>
 
-## License
-Because the program tshark is not integrated into my program but only uses the command line, the license 
-of this program remains unchanged and can be placed under any license the developer (Manuel Spiss) wishes in the future.
-
-The license of the program will be selected in the future and linked here.
