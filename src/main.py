@@ -122,10 +122,11 @@ def set_admin(username: str, password: str):
         password, generated = initial_admin_password(password)
         set_user(username, hash_password(password))
         if generated:
-            app_logger.warning(
-                f"Created admin user '{username}' with generated password '{password}'. "
-                "Change it in the UI after the first login."
-            )
+            message = (f"Created admin user '{username}' with generated password '{password}'. "
+                       "Change it in the UI after the first login.")
+            # Printed as well, so it shows up in `docker compose logs`.
+            print(message)
+            app_logger.warning(message)
 
 def switch_mode(mode: str, source: str):
     """

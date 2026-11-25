@@ -40,7 +40,7 @@ The most important values:
 Secrets are not stored in the repository:
 
 - `SECRET_KEY` signs the JWT tokens. If it is neither set as an environment variable nor in `config.ini`, the program generates a random key on every start. Users then have to log in again after a restart.
-- `ADMIN_USERNAME` and `ADMIN_PASSWORD` define the admin user that is created on the first start. If no password is set, the program generates one and writes it to the log once. Change it in the UI after the first login.
+- `ADMIN_USERNAME` and `ADMIN_PASSWORD` define the admin user that is created on the first start. If no password is set, the program generates one and prints it once to the console (`docker compose logs app` when running in Docker). Change it in the UI after the first login.
 - `DATABASE_CONNECTION` overrides the SQLite connection string.
 
 ## Running on Linux (Docker)
