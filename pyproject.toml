@@ -4,9 +4,9 @@ build-backend = "setuptools.build_meta"
 
 [tool.pytest.ini_options]
 markers = [
-  "slow: mark slow tests (dauern länger und werden lokal übersprungen)",
+  "slow: mark slow tests (take longer and are skipped locally)",
 ]
-pythonpath = ["."]
+pythonpath = [".", "src"]
 
 
 

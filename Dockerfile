@@ -1,9 +1,9 @@
 FROM python:3.13-slim
 
-# (optional) damit apt‑get nicht nach Bestätigungen fragt
+# keep apt-get from asking for confirmation
 ENV DEBIAN_FRONTEND=noninteractive
 
-# install the nessessary packages for Wireshark and Pyshark
+# install the necessary packages for Wireshark and Pyshark
 RUN apt-get update \
   && apt-get install -y --no-install-recommends \
      build-essential \
@@ -26,7 +26,7 @@ RUN mkdir -p /root/.config/wireshark && \
     echo "gui.geometry_main_y: 0" >> /root/.config/wireshark/recent
 
 # set wireshark preferences for better protocol detection
-# (nessessary to detect all rtp streams)
+# (necessary to detect all rtp streams)
 RUN mkdir -p /etc/wireshark && \
     echo "# Enable all dissectors" > /etc/wireshark/preferences && \
     echo "rtp.heuristic_rtp: TRUE" >> /etc/wireshark/preferences && \
@@ -39,15 +39,15 @@ RUN pip install --upgrade pip setuptools wheel \
  && pip install --no-cache-dir -r requirements.txt
 
 # Copy the wait-for-rabbit script to the container
-# nessesary to wait for RabbitMQ to be ready before starting the application
+# necessary to wait for RabbitMQ to be ready before starting the application
 COPY wait-for-rabbit.sh /usr/local/bin/wait-for-rabbit.sh
 RUN chmod +x /usr/local/bin/wait-for-rabbit.sh
 
-# in the dev mode it isn't nessesary to copy the source code into the container
+# in the dev mode it isn't necessary to copy the source code into the container
 # because we mount the source code into the container
 #COPY . .
 
-# set environment variables for wireshark for better perfoemance
+# set environment variables for wireshark for better performance
 ENV PYSHARK_CONFIG_DIR=/etc/wireshark
 ENV WIRESHARK_CONFIG_DIR=/etc/wireshark
 

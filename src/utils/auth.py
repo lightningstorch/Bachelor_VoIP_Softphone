@@ -1,3 +1,5 @@
+import secrets
+
 import jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
@@ -95,4 +97,8 @@ def authenticate(username: str, password: str):
     return db_user
 
 
-
+def initial_admin_password(configured: str) -> tuple[str, bool]:
+    """Returns the configured admin password, or a new random one (flagged True) when none is set."""
+    if configured:
+        return configured, False
+    return secrets.token_urlsafe(16), True

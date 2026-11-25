@@ -31,6 +31,10 @@ services:
       - rabbitmq
     environment:
       - PYTHONUNBUFFERED=1
+      # passed through from the host when set
+      - SECRET_KEY
+      - ADMIN_USERNAME
+      - ADMIN_PASSWORD
 
 
 

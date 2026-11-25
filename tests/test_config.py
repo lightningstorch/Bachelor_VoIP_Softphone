@@ -108,3 +108,41 @@ def use_test_config(tmp_path, monkeypatch):
 
 
 
+
+
+def test_env_overrides_secret_key_and_admin(monkeypatch):
+    """SECRET_KEY, ADMIN_USERNAME and ADMIN_PASSWORD from the environment win over config.ini."""
+    monkeypatch.setenv("SECRET_KEY", "env-secret")
+    monkeypatch.setenv("ADMIN_USERNAME", "root")
+    monkeypatch.setenv("ADMIN_PASSWORD", "env-password")
+    import src.config.config as config
+    importlib.reload(config)
+
+    assert config.secret_key == "env-secret"
+    assert config.admin_username == "root"
+    assert config.admin_password == "env-password"
+
+
+def test_empty_secret_key_generates_random_key(tmp_path, monkeypatch):
+    """Without a configured key, every start gets its own random 256-bit key."""
+    monkeypatch.delenv("SECRET_KEY", raising=False)
+    ini = tmp_path / "config.ini"
+    ini.write_text(re.sub(r"secret_key\s*=.*", "secret_key =", ini.read_text()))
+    import src.config.config as config
+    importlib.reload(config)
+    first_key = config.secret_key
+    importlib.reload(config)
+
+    assert re.fullmatch(r"[0-9a-f]{64}", first_key)
+    assert config.secret_key != first_key
+
+
+def test_empty_admin_password_stays_empty(tmp_path, monkeypatch):
+    """An empty admin password in config.ini is passed on as empty, main.py then generates one."""
+    monkeypatch.delenv("ADMIN_PASSWORD", raising=False)
+    ini = tmp_path / "config.ini"
+    ini.write_text(re.sub(r"(\[admin\][^\[]*?password\s*=).*", r"\1", ini.read_text(), flags=re.S))
+    import src.config.config as config
+    importlib.reload(config)
+
+    assert config.admin_password == ""

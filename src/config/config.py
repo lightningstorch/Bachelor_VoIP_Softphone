@@ -1,13 +1,14 @@
+"""
+Reads the configuration from 'config.ini' and provides the program's parameters.
+A 'config.ini' in the current working directory takes precedence over the one next to this file.
+SECRET_KEY, ADMIN_USERNAME, ADMIN_PASSWORD and DATABASE_CONNECTION can be set as environment variables.
+"""
 import configparser
 import os
+import secrets
 from pathlib import Path
 
 from utils.platform_information import get_platform_information
-
-"""
-This module reads the configuration from the 'config.ini' file and
-provides important parameters.
-"""
 
 
 cfg_in_cwd = Path.cwd() / 'config.ini'
@@ -87,14 +88,16 @@ database_log_level = _config['logging']['database_log_level']
 # ===========================================
 #        Authentication Configuration
 # ===========================================
-secret_key = _config['authentication']['secret_key']
+# Without a configured key every start gets a random one, so no shared default key exists.
+secret_key = (os.environ.get("SECRET_KEY")
+              or _config['authentication'].get('secret_key', '').strip()
+              or secrets.token_hex(32))
 algorithm = _config['authentication']['algorithm']
 access_token_expire_minutes = int(_config['authentication']['access_token_expire_minutes'])
 
 # ===========================================
 #           Admin Configuration
 # ===========================================
-admin_username = _config['admin']['username']
-admin_password = _config['admin']['password']
-
-
+admin_username = os.environ.get("ADMIN_USERNAME") or _config['admin']['username']
+# Empty means main.py generates a password when it creates the admin user.
+admin_password = os.environ.get("ADMIN_PASSWORD") or _config['admin'].get('password', '').strip()

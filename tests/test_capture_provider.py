@@ -115,7 +115,7 @@ class TestCaptureIntegration(unittest.TestCase):
         """Test the integration of CaptureProvider with a sample pcapng file."""
 
         if not os.path.exists(self.file):
-            raise FileNotFoundError(f"Test file {self.file} does not exist.")
+            self.skipTest(f"Sample capture {self.file} is not available.")
 
         # Copy the file to a temporary location for testing because capture_provider delete the file after processing
         test_copy = os.path.join(self.data_dir, "temp_file.pcapng")

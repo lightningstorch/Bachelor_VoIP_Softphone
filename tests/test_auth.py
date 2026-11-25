@@ -127,3 +127,20 @@ def test_authentication_failure(data_test_user):
 
         user = authenticate(username="nonexistent", password="any")
         assert user is None
+
+
+def test_initial_admin_password_keeps_configured_value():
+    """A configured admin password is used as it is."""
+    from utils.auth import initial_admin_password
+    assert initial_admin_password("configured") == ("configured", False)
+
+
+def test_initial_admin_password_generates_when_empty():
+    """Without a configured password a random one is generated, different on every call."""
+    from utils.auth import initial_admin_password
+    first, generated = initial_admin_password("")
+    second, _ = initial_admin_password("")
+
+    assert generated is True
+    assert len(first) >= 16
+    assert first != second

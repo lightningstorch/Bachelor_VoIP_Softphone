@@ -12,7 +12,7 @@ from datastructure.aggregator import Aggregator
 from datastructure.async_message_service import AsyncMessageService
 from my_logging.log_config import app_logger, broadcast_log
 from datastructure.database.database import init_db, get_user, set_user
-from utils.auth import hash_password
+from utils.auth import hash_password, initial_admin_password
 from utils.program_state_manager import ProgramStateManager
 
 #==================================
@@ -119,8 +119,13 @@ def set_admin(username: str, password: str):
     """
     db_user = get_user(username)
     if not db_user:
-        hashed_pass = hash_password(password)
-        set_user(username, hashed_pass)
+        password, generated = initial_admin_password(password)
+        set_user(username, hash_password(password))
+        if generated:
+            app_logger.warning(
+                f"Created admin user '{username}' with generated password '{password}'. "
+                "Change it in the UI after the first login."
+            )
 
 def switch_mode(mode: str, source: str):
     """
